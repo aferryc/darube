@@ -1,0 +1,258 @@
+import { useState, useEffect } from 'react';
+
+export function useConnections(apiUrl) {
+  const [connections, setConnections] = useState([]);
+  const [folders, setFolders] = useState([]);
+  const [expandedConns, setExpandedConns] = useState({});
+  const [expandedTree, setExpandedTree] = useState({});
+  const [metadata, setMetadata] = useState({});
+  const [expandedFolders, setExpandedFolders] = useState({});
+
+  // Folder form state
+  const [editingFolderId, setEditingFolderId] = useState(null);
+  const [folderEditName, setFolderEditName] = useState('');
+  const [showNewFolderInput, setShowNewFolderInput] = useState(false);
+  const [newFolderName, setNewFolderName] = useState('');
+
+  // Drag-and-drop
+  const [draggedConnId, setDraggedConnId] = useState(null);
+  const [dragOverFolderId, setDragOverFolderId] = useState(null);
+
+  const fetchConnections = async () => {
+    try {
+      const res = await fetch(`${apiUrl}/api/connections`);
+      const data = await res.json();
+      if (data.connections) setConnections(data.connections);
+    } catch (e) {
+      console.error('Engine not ready or error:', e);
+    }
+  };
+
+  const fetchFolders = async () => {
+    try {
+      const res = await fetch(`${apiUrl}/api/folders`);
+      const data = await res.json();
+      if (data.success) setFolders(data.folders || []);
+    } catch (e) {
+      console.error('Failed to load folders:', e);
+    }
+  };
+
+  const fetchMetadata = async (id) => {
+    try {
+      const [dbRes, entRes] = await Promise.all([
+        fetch(`${apiUrl}/api/connections/${id}/metadata/databases`),
+        fetch(`${apiUrl}/api/connections/${id}/metadata/schemas`),
+      ]);
+      const dbData = await dbRes.json();
+      const entData = await entRes.json();
+      setMetadata(prev => ({
+        ...prev,
+        [id]: {
+          databases: dbData.success ? dbData.databases : [],
+          schemas: entData.success ? entData.schemas : [],
+        },
+      }));
+    } catch (err) {
+      console.error('Failed to load metadata', err);
+    }
+  };
+
+  // Auto-expand connected connections
+  useEffect(() => {
+    let toFetch = false;
+    let newExpanded = null;
+    connections.forEach(c => {
+      if (c.status === 'connected' && !metadata[c.id] && expandedConns[c.id] !== true) {
+        if (!newExpanded) newExpanded = { ...expandedConns };
+        newExpanded[c.id] = true;
+        toFetch = true;
+        fetchMetadata(c.id);
+      }
+    });
+    if (toFetch) setExpandedConns(prev => ({ ...prev, ...newExpanded }));
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [connections, metadata, expandedConns]);
+
+  const handleConnectionClick = async (id, forceExpand = false) => {
+    const isExpanded = forceExpand || !expandedConns[id];
+    setExpandedConns(prev => ({ ...prev, [id]: isExpanded }));
+    if (isExpanded && !metadata[id]) await fetchMetadata(id);
+    return id; // let caller do setActiveId
+  };
+
+  const handleDisconnect = async (id, activeId, setActiveId) => {
+    const conn = connections.find(c => c.id === id);
+    const base = conn?.db_type === 'redis' ? '/api/redis' : '/api/connections';
+    await fetch(`${apiUrl}${base}/${id}/disconnect`, { method: 'POST' });
+    if (activeId === id) setActiveId(null);
+    fetchConnections();
+  };
+
+  const handleReconnect = async (id) => {
+    const conn = connections.find(c => c.id === id);
+    const url = conn?.db_type === 'redis' ? `${apiUrl}/api/redis/reconnect` : `${apiUrl}/api/connections/connect`;
+    await fetch(url, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ id }),
+    });
+    fetchConnections();
+  };
+
+  const handleDeleteConnection = async (id, activeId, setActiveId) => {
+    if (!window.confirm('Are you sure you want to delete this connection?')) return;
+    try {
+      const conn = connections.find(c => c.id === id);
+      const base = conn?.db_type === 'redis' ? '/api/redis' : '/api/connections';
+      const res = await fetch(`${apiUrl}${base}/${id}`, { method: 'DELETE' });
+      const data = await res.json();
+      if (data.success) {
+        if (activeId === id) setActiveId(null);
+        fetchConnections();
+      } else {
+        alert(data.error);
+      }
+    } catch (err) {
+      alert('Failed to delete: ' + err.message);
+    }
+  };
+
+  const handleDropOnFolder = async (targetFolderId) => {
+    if (!draggedConnId) return;
+    const conn = connections.find(c => c.id === draggedConnId);
+    if (!conn) return;
+    if ((conn.folder_id || '') === (targetFolderId || '')) {
+      setDraggedConnId(null); setDragOverFolderId(null); return;
+    }
+    try {
+      const base = conn.db_type === 'redis' ? '/api/redis' : '/api/connections';
+      await fetch(`${apiUrl}${base}/${draggedConnId}/folder`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ folder_id: targetFolderId || '' }),
+      });
+      fetchConnections();
+    } catch (err) {
+      console.error('Error moving connection:', err);
+    } finally {
+      setDraggedConnId(null); setDragOverFolderId(null);
+    }
+  };
+
+  const handleCreateFolder = () => { setNewFolderName(''); setShowNewFolderInput(true); };
+
+  const handleSubmitNewFolder = async () => {
+    if (!newFolderName.trim()) { setShowNewFolderInput(false); return; }
+    try {
+      const res = await fetch(`${apiUrl}/api/folders`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name: newFolderName.trim() }),
+      });
+      const data = await res.json();
+      if (data.success) {
+        fetchFolders();
+        setExpandedFolders(prev => ({ ...prev, [data.folder.id]: true }));
+      }
+    } catch (err) {
+      console.error('Error creating folder:', err);
+    } finally {
+      setShowNewFolderInput(false); setNewFolderName('');
+    }
+  };
+
+  const handleRenameFolder = (folderId, currentName, e) => {
+    e.stopPropagation();
+    setEditingFolderId(folderId);
+    setFolderEditName(currentName);
+  };
+
+  const handleSubmitRenameFolder = async (folderId) => {
+    if (folderEditName.trim()) {
+      try {
+        await fetch(`${apiUrl}/api/folders/${folderId}`, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ name: folderEditName.trim() }),
+        });
+        fetchFolders();
+      } catch (err) { console.error('Error renaming folder:', err); }
+    }
+    setEditingFolderId(null); setFolderEditName('');
+  };
+
+  const handleDeleteFolder = async (folderId, e) => {
+    e.stopPropagation();
+    if (!window.confirm('Delete this folder? Connections inside will become uncategorized.')) return;
+    try {
+      await fetch(`${apiUrl}/api/folders/${folderId}`, { method: 'DELETE' });
+      fetchFolders(); fetchConnections();
+    } catch (err) { console.error('Error deleting folder:', err); }
+  };
+
+  const toggleTree = async (e, key, type, id, schemaName, tableName) => {
+    e.stopPropagation();
+    const isExpanding = !expandedTree[key];
+    setExpandedTree(prev => ({ ...prev, [key]: isExpanding }));
+
+    if (!isExpanding || !type || !id || !schemaName) return;
+
+    if (type === 'schema') {
+      const schema = metadata[id]?.schemas?.find(s => s.name === schemaName);
+      if (schema && !schema.tablesLoaded) {
+        try {
+          const res = await fetch(`${apiUrl}/api/connections/${id}/metadata/schemas/${schemaName}/tables`);
+          const data = await res.json();
+          if (data.success) {
+            setMetadata(prev => {
+              const m = { ...prev };
+              if (!m[id]?.schemas) return prev;
+              const schemas = [...m[id].schemas];
+              const si = schemas.findIndex(s => s.name === schemaName);
+              if (si > -1) schemas[si] = { ...schemas[si], tables: data.tables || [], tablesLoaded: true };
+              return { ...m, [id]: { ...m[id], schemas } };
+            });
+          }
+        } catch (err) { console.error('Failed to fetch tables', err); }
+      }
+    } else if (type === 'table') {
+      const schema = metadata[id]?.schemas?.find(s => s.name === schemaName);
+      const table = schema?.tables?.find(t => t.name === tableName);
+      if (table && !table.columnsLoaded) {
+        try {
+          const res = await fetch(`${apiUrl}/api/connections/${id}/metadata/schemas/${schemaName}/tables/${tableName}/columns`);
+          const data = await res.json();
+          if (data.success) {
+            setMetadata(prev => {
+              const m = { ...prev };
+              if (!m[id]?.schemas) return prev;
+              const schemas = [...m[id].schemas];
+              const si = schemas.findIndex(s => s.name === schemaName);
+              if (si > -1) {
+                const tables = [...schemas[si].tables];
+                const ti = tables.findIndex(t => t.name === tableName);
+                if (ti > -1) tables[ti] = { ...tables[ti], columns: data.columns || [], columnsLoaded: true };
+                schemas[si] = { ...schemas[si], tables };
+                m[id] = { ...m[id], schemas };
+              }
+              return m;
+            });
+          }
+        } catch (err) { console.error('Failed to fetch columns', err); }
+      }
+    }
+  };
+
+  return {
+    connections, folders, metadata, expandedConns, expandedTree, expandedFolders,
+    editingFolderId, folderEditName, showNewFolderInput, newFolderName,
+    draggedConnId, dragOverFolderId,
+    setExpandedFolders, setFolderEditName, setNewFolderName, setDraggedConnId, setDragOverFolderId,
+    fetchConnections, fetchFolders,
+    handleConnectionClick, handleDisconnect, handleReconnect, handleDeleteConnection,
+    handleDropOnFolder, handleCreateFolder, handleSubmitNewFolder,
+    handleRenameFolder, handleSubmitRenameFolder, handleDeleteFolder,
+    toggleTree,
+  };
+}
