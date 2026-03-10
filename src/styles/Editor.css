@@ -105,6 +105,11 @@
   min-width: 320px;
 }
 
+.script-ac-dropdown {
+  min-width: 360px;
+  max-width: 520px;
+}
+
 .ac-main {
   display: flex;
   align-items: center;

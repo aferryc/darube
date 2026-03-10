@@ -7,6 +7,7 @@ import { Sidebar }          from './components/Sidebar'
 import { QueryTabs }        from './components/QueryTabs'
 import { ResultsPane }      from './components/ResultsPane'
 import { RedisPane }        from './components/RedisPane'
+import { ScriptPane }       from './components/ScriptPane'
 import { ConnectionModal }  from './components/ConnectionModal'
 import { ContextMenu, ExportModal, HelpModal, ConnectionSwitchModal } from './components/Modals'
 
@@ -21,7 +22,8 @@ const enginePort = params.get('enginePort') || '3000';
 const apiUrl    = `http://localhost:${enginePort}`;
 
 const EMPTY_FORM = { 
-  connection_name: '', db_type: 'postgres', host: '', port: 5432, dbname: '', 
+  connection_name: '', db_type: 'postgres', host: '', port: 5432, dbname: '',
+  file_path: '',
   user: '', password: '', enable_ssl: false, 
   ca_cert_path: '', client_cert_path: '', client_key_path: '', 
   folder_id: '' 
@@ -72,8 +74,9 @@ function App() {
       connection_name: c.connection_name || '', 
       db_type: c.db_type || 'postgres', 
       host: c.host || '', 
-      port: c.port || 5432, 
+      port: (typeof c.port === 'number' ? c.port : 5432),
       dbname: c.dbname || '', 
+      file_path: c.file_path || '',
       user: c.user || '', 
       password: '', 
       enable_ssl: c.enable_ssl || false, 
@@ -88,8 +91,15 @@ function App() {
   const handleConnectNew = async (e) => {
     e.preventDefault();
     try {
-      const portInt = parseInt(formData.port);
-      if (isNaN(portInt)) {
+      const unsupportedNoSql = ['mongodb', 'cassandra', 'elasticsearch', 'opensearch'].includes(formData.db_type);
+      if (unsupportedNoSql) {
+        alert(`${formData.db_type} connections are not implemented in the engine yet.`);
+        return;
+      }
+
+      const isFileDb = formData.db_type === 'sqlite';
+      const portInt = isFileDb ? 0 : parseInt(formData.port);
+      if (!isFileDb && isNaN(portInt)) {
         alert('Please enter a valid port number');
         return;
       }
@@ -125,8 +135,15 @@ function App() {
   const handleTestConnection = async (e) => {
     e.preventDefault();
     try {
-      const portInt = parseInt(formData.port);
-      if (isNaN(portInt)) {
+      const unsupportedNoSql = ['mongodb', 'cassandra', 'elasticsearch', 'opensearch'].includes(formData.db_type);
+      if (unsupportedNoSql) {
+        alert(`${formData.db_type} connections are not implemented in the engine yet.`);
+        return;
+      }
+
+      const isFileDb = formData.db_type === 'sqlite';
+      const portInt = isFileDb ? 0 : parseInt(formData.port);
+      if (!isFileDb && isNaN(portInt)) {
         alert('Please enter a valid port number');
         return;
       }
@@ -260,6 +277,10 @@ function App() {
         handleDisconnect={handleDisconnect}
         handleReconnect={handleReconnect}
         onNewConnection={openNewConnection}
+        onNewScript={() => {
+          const n = tabs.tabs.filter(t => t.type === 'script').length + 1;
+          tabs.addSpecialTab(`Script ${n}`, 'script', { query: '', results: null }, null);
+        }}
         onShowHelp={() => setShowHelpModal(true)}
         handleConnectionContextMenu={ctxMenu.handleConnectionContextMenu}
         handleTableContextMenu={ctxMenu.handleTableContextMenu}
@@ -278,7 +299,16 @@ function App() {
           activeConnType={activeConn?.db_type}
         />
 
-        {tabs.activeTab.type === 'query' ? (
+        {tabs.activeTab.type === 'script' ? (
+          <ScriptPane
+            apiUrl={apiUrl}
+            activeTab={tabs.activeTab}
+            updateActiveTab={tabs.updateActiveTab}
+            loading={loading}
+            setLoading={setLoading}
+            connections={connections.connections}
+          />
+        ) : tabs.activeTab.type === 'query' ? (
           <Split
             key={`${layoutDirection}-${activeConn?.db_type || 'none'}`}
             className={`split-container ${layoutDirection}`}

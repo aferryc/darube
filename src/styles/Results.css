@@ -404,3 +404,89 @@
   gap: 12px;
   opacity: 0.6;
 }
+
+/* Script Pane */
+.script-pane {
+  background: var(--bg-editor);
+  flex: 1;
+  min-height: 0;
+}
+
+.script-header {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 12px;
+  border-bottom: 1px solid var(--border);
+  background: rgba(255, 255, 255, 0.02);
+}
+
+.script-title {
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+}
+
+.script-run-btn {
+  height: 28px;
+  padding: 0 12px;
+  font-size: 12px;
+  border-radius: 8px;
+}
+
+.script-help-btn {
+  height: 28px;
+  width: 34px;
+  justify-content: center;
+  padding: 0;
+  background: transparent;
+  border: 1px solid var(--border);
+}
+
+.script-help-btn:hover {
+  transform: none;
+  box-shadow: none;
+  background: rgba(255,255,255,0.04);
+}
+
+.script-split {
+  display: grid;
+  grid-template-columns: 1.25fr 1fr;
+  gap: 0;
+  min-height: 0;
+  flex: 1;
+  height: 100%;
+}
+
+.script-editor {
+  min-height: 0;
+  border-right: 1px solid var(--border);
+  display: flex;
+  width: 100%;
+}
+
+.script-editor .query-editor-container {
+  height: 100%;
+}
+
+.script-output {
+  min-height: 0;
+  overflow: auto;
+  padding: 14px;
+}
+
+.script-output-pre {
+  margin: 0;
+  padding: 14px;
+  border-radius: 10px;
+  border: 1px solid var(--border);
+  background: var(--bg-dark);
+  color: #a5d6ff;
+  font-family: "JetBrains Mono", monospace;
+  font-size: 12px;
+  line-height: 1.45;
+  white-space: pre-wrap;
+  word-break: break-word;
+}

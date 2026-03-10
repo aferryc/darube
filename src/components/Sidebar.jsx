@@ -6,11 +6,13 @@ import iconAngleRight from '../assets/angle-right.svg';
 import iconDatabase from '../assets/database.svg';
 import iconDelete from '../assets/delete.svg';
 import iconMysql from '../assets/mysql.svg';
+import iconOracle from '../assets/oracle.svg';
 import iconPencil from '../assets/pencil.svg';
 import iconPostgres from '../assets/postgre.svg';
 import iconQuestion from '../assets/question.svg';
 import iconRefresh from '../assets/rotate-right.svg';
 import iconRedis from '../assets/redis.svg';
+import iconSqlite from '../assets/sqlite.svg';
 import iconSqlServer from '../assets/sql-server.svg';
 import { groupTables } from '../utils/tableUtils';
 
@@ -63,7 +65,9 @@ function ConnectionItem({ c, activeId, expandedConns, expandedTree, metadata, ex
         <div className="connection-item-header">
           <span className={`status-dot ${c.status}`} title={c.status} />
           {c.db_type === 'mysql'     && <img src={iconMysql}     className="icon icon-light" alt="MySQL" />}
+          {c.db_type === 'oracle'   && <img src={iconOracle}    className="icon icon-light" alt="Oracle" />}
           {c.db_type === 'postgres'  && <img src={iconPostgres}  className="icon icon-light" alt="PostgreSQL" />}
+          {c.db_type === 'sqlite'   && <img src={iconSqlite}    className="icon icon-light" alt="SQLite" />}
           {c.db_type === 'sqlserver' && <img src={iconSqlServer} className="icon icon-light" alt="SQL Server" />}
           {c.db_type === 'redis'     && <img src={iconRedis}     className="icon icon-light" alt="Redis" />}
           <span style={{ fontWeight: 500 }}>{c.connection_name}</span>
@@ -157,7 +161,7 @@ export function Sidebar({
   handleConnectionContextMenu, handleTableContextMenu, toggleTree,
   handleCreateFolder, handleSubmitNewFolder,
   handleRenameFolder, handleSubmitRenameFolder, handleDeleteFolder,
-  handleDropOnFolder, onNewConnection, onShowHelp,
+  handleDropOnFolder, onNewConnection, onShowHelp, onNewScript,
 }) {
   const connItemProps = {
     activeId, expandedConns, expandedTree, metadata, expandedFolders,
@@ -180,7 +184,9 @@ export function Sidebar({
               <div key={c.id} className={`sidebar-icon-conn ${activeId === c.id ? 'active' : ''}`} onClick={() => handleConnectionClick(c.id)} title={`${c.connection_name} (${c.db_type}) — ${c.status}`}>
                 <span className={`status-dot ${c.status}`} />
                 {c.db_type === 'mysql'     && <img src={iconMysql}     className="icon icon-light" alt="MySQL" />}
+                {c.db_type === 'oracle'   && <img src={iconOracle}    className="icon icon-light" alt="Oracle" />}
                 {c.db_type === 'postgres'  && <img src={iconPostgres}  className="icon icon-light" alt="PostgreSQL" />}
+                {c.db_type === 'sqlite'   && <img src={iconSqlite}    className="icon icon-light" alt="SQLite" />}
                 {c.db_type === 'sqlserver' && <img src={iconSqlServer} className="icon icon-light" alt="SQL Server" />}
                 {c.db_type === 'redis'     && <img src={iconRedis}     className="icon icon-light" alt="Redis" />}
               </div>
@@ -211,6 +217,8 @@ export function Sidebar({
               ) : (
                 <button className="new-folder-btn" onClick={handleCreateFolder}>+ New Folder</button>
               )}
+
+              <button className="new-script-btn" onClick={onNewScript}>{"</>"} New Script</button>
 
               {folders.map(folder => {
                 const folderConns = connections.filter(c => c.folder_id === folder.id);

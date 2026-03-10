@@ -21,6 +21,10 @@ func Connect(config store.ConnectionConfig) (*sql.DB, error) {
 		driverName = "mysql"
 	case "sqlserver", "mssql":
 		driverName = "sqlserver"
+	case "sqlite", "sqlite3":
+		driverName = "sqlite"
+	case "oracle":
+		driverName = "oracle"
 	}
 
 	dsn, err := buildDSN(config, driverName)
@@ -50,7 +54,7 @@ func buildDSN(c store.ConnectionConfig, driverName string) (string, error) {
 		if c.EnableSSL {
 			sslMode = "require" // Default requirement if SSL is enabled
 		}
-		
+
 		dsn := fmt.Sprintf("host=%s port=%d user=%s password=%s sslmode=%s",
 			c.Host, c.Port, c.User, c.Password, sslMode)
 		if c.DBName != "" {
@@ -71,7 +75,7 @@ func buildDSN(c store.ConnectionConfig, driverName string) (string, error) {
 				dsn += fmt.Sprintf(" sslkey=%s", c.ClientKeyPath)
 			}
 		}
-		
+
 		return dsn, nil
 
 	case "mysql":
@@ -85,7 +89,7 @@ func buildDSN(c store.ConnectionConfig, driverName string) (string, error) {
 				if err == nil {
 					sslMode = tlsConfigName
 				} else {
-					sslMode = "skip-verify" 
+					sslMode = "skip-verify"
 				}
 			}
 		}
@@ -108,14 +112,39 @@ func buildDSN(c store.ConnectionConfig, driverName string) (string, error) {
 			q.Add("encrypt", "true")
 			// Add related certificates query params here
 		} else {
-			// Teleport proxies usually terminate TLS themselves. Setting encrypt=disable tells the 
+			// Teleport proxies usually terminate TLS themselves. Setting encrypt=disable tells the
 			// go-mssqldb driver to not attempt a TLS upgrade over the ALPN tunnel, but we actually
 			// need to pass trustservercertificate=true to bypass the prelogin handshake gracefully.
 			q.Add("trustservercertificate", "true")
 		}
 		u.RawQuery = q.Encode()
 		return u.String(), nil
-		
+
+	case "sqlite":
+		// modernc.org/sqlite DSN is typically a filepath, ":memory:", or "file:...".
+		// We store it in file_path, but also accept host for backwards/experimental usage.
+		if c.FilePath != "" {
+			return c.FilePath, nil
+		}
+		if c.Host != "" {
+			return c.Host, nil
+		}
+		return "", fmt.Errorf("sqlite: file_path is required")
+
+	case "oracle":
+		// go-ora DSN as URL: oracle://user:pass@host:port/service_name
+		// We store service name in dbname.
+		if c.Host == "" || c.Port == 0 || c.User == "" || c.DBName == "" {
+			return "", fmt.Errorf("oracle: host, port, user, and dbname(service) are required")
+		}
+		u := &url.URL{
+			Scheme: "oracle",
+			User:   url.UserPassword(c.User, c.Password),
+			Host:   fmt.Sprintf("%s:%d", c.Host, c.Port),
+			Path:   "/" + c.DBName,
+		}
+		return u.String(), nil
+
 	default:
 		return "", fmt.Errorf("unsupported database type: %s", driverName)
 	}

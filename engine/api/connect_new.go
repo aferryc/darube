@@ -27,12 +27,31 @@ func ConnectNewHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if req.ConnectionName == "" || req.DBType == "" || req.Host == "" || req.User == "" {
-		sendJSONResponse(w, CommandOutput{
-			Success: false,
-			Error:   "Missing required fields (connection_name, db_type, host, user)",
-		}, http.StatusBadRequest)
-		return
+	switch req.DBType {
+	case "sqlite", "sqlite3":
+		if req.ConnectionName == "" || req.DBType == "" || req.FilePath == "" {
+			sendJSONResponse(w, CommandOutput{
+				Success: false,
+				Error:   "Missing required fields (connection_name, db_type, file_path)",
+			}, http.StatusBadRequest)
+			return
+		}
+	case "oracle":
+		if req.ConnectionName == "" || req.DBType == "" || req.Host == "" || req.Port == 0 || req.User == "" || req.DBName == "" {
+			sendJSONResponse(w, CommandOutput{
+				Success: false,
+				Error:   "Missing required fields (connection_name, db_type, host, port, user, dbname)",
+			}, http.StatusBadRequest)
+			return
+		}
+	default:
+		if req.ConnectionName == "" || req.DBType == "" || req.Host == "" || req.User == "" {
+			sendJSONResponse(w, CommandOutput{
+				Success: false,
+				Error:   "Missing required fields (connection_name, db_type, host, user)",
+			}, http.StatusBadRequest)
+			return
+		}
 	}
 
 	if req.ID == "" {
