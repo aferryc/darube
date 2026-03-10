@@ -30,6 +30,10 @@ func GetSchemas(dbType string, db *sql.DB) ([]SchemaInfo, error) {
 				 FROM sys.schemas 
 				 WHERE name NOT IN ('sys', 'INFORMATION_SCHEMA')
 				 ORDER BY name;`
+	case "sqlite":
+		return []SchemaInfo{{Name: "main", Tables: []EntityInfo{}}}, nil
+	case "oracle":
+		query = "SELECT SYS_CONTEXT('USERENV','CURRENT_SCHEMA') FROM dual"
 	default:
 		return nil, fmt.Errorf("unsupported database type for schema fetching: %s", dbType)
 	}
@@ -78,6 +82,18 @@ func GetTablesList(dbType string, db *sql.DB, schemaName string) ([]EntityInfo, 
 				 WHERE s.name = @p1 AND t.type IN ('U', 'V')
 				 ORDER BY t.name;`
 		args = append(args, sql.Named("p1", schemaName))
+	case "sqlite":
+		// schemaName is ignored (SQLite doesn't have real schemas).
+		query = `SELECT name, type
+				 FROM sqlite_master
+				 WHERE type IN ('table','view') AND name NOT LIKE 'sqlite_%'
+				 ORDER BY name;`
+	case "oracle":
+		// schemaName is ignored for now; we list objects in the current schema.
+		query = `SELECT table_name, 'TABLE' FROM user_tables
+				 UNION ALL
+				 SELECT view_name, 'VIEW' FROM user_views
+				 ORDER BY 1`
 	default:
 		return nil, fmt.Errorf("unsupported database type for tables fetching: %s", dbType)
 	}
@@ -93,10 +109,10 @@ func GetTablesList(dbType string, db *sql.DB, schemaName string) ([]EntityInfo, 
 		if err := rows.Scan(&tName, &pType); err != nil {
 			continue
 		}
-		
+
 		if tName.Valid {
 			objType := "table"
-			if pType.Valid && (pType.String == "VIEW" || pType.String == "SQL_INLINE_TABLE_VALUED_FUNCTION" || pType.String == "SQL_TABLE_VALUED_FUNCTION") {
+			if pType.Valid && (pType.String == "VIEW" || pType.String == "view" || pType.String == "SQL_INLINE_TABLE_VALUED_FUNCTION" || pType.String == "SQL_TABLE_VALUED_FUNCTION") {
 				objType = "view"
 			}
 			results = append(results, EntityInfo{
@@ -159,6 +175,17 @@ func GetColumnsList(dbType string, db *sql.DB, schemaName string, tableName stri
 				 WHERE s.name = @p1 AND t.name = @p2
 				 ORDER BY c.column_id;`
 		args = []interface{}{sql.Named("p1", schemaName), sql.Named("p2", tableName)}
+	case "sqlite":
+		// schemaName is ignored (SQLite doesn't have real schemas).
+		escaped := strings.ReplaceAll(tableName, `"`, `""`)
+		query = fmt.Sprintf(`PRAGMA table_info("%s");`, escaped)
+	case "oracle":
+		// schemaName is ignored; columns are returned for current schema objects.
+		query = `SELECT column_name, data_type
+				 FROM user_tab_columns
+				 WHERE table_name = :1
+				 ORDER BY column_id`
+		args = []interface{}{strings.ToUpper(tableName)}
 	default:
 		return nil, fmt.Errorf("unsupported database type for columns fetching: %s", dbType)
 	}
@@ -170,6 +197,25 @@ func GetColumnsList(dbType string, db *sql.DB, schemaName string, tableName stri
 	defer rows.Close()
 
 	for rows.Next() {
+		if dbType == "sqlite" {
+			var cid sql.NullInt64
+			var cName, cType sql.NullString
+			var notnull sql.NullInt64
+			var dflt sql.NullString
+			var pk sql.NullInt64
+			if err := rows.Scan(&cid, &cName, &cType, &notnull, &dflt, &pk); err != nil {
+				continue
+			}
+			if cName.Valid {
+				typ := ""
+				if cType.Valid {
+					typ = cType.String
+				}
+				results = append(results, ColumnInfo{Name: cName.String, Type: typ})
+			}
+			continue
+		}
+
 		var cName, cType sql.NullString
 		if err := rows.Scan(&cName, &cType); err != nil {
 			continue

@@ -184,6 +184,143 @@
   line-height: 1.4;
 }
 
+/* Help content blocks (used by HelpModal and ScriptHelpModal) */
+.help-content {
+  margin-top: 12px;
+  color: var(--text-main);
+  line-height: 1.5;
+  font-size: 13px;
+}
+
+.help-content code {
+  background: rgba(255,255,255,0.06);
+  border: 1px solid rgba(255,255,255,0.08);
+  padding: 1px 6px;
+  border-radius: 6px;
+  font-family: "JetBrains Mono", monospace;
+  font-size: 12px;
+}
+
+.help-list {
+  margin: 8px 0 0;
+  padding-left: 18px;
+  color: var(--text-muted);
+  font-size: 12px;
+}
+
+.help-list li {
+  margin: 6px 0;
+}
+
+/* Script help (compact cheatsheet) */
+.script-help-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+  margin-top: 6px;
+}
+
+.script-help-card {
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid rgba(255, 255, 255, 0.07);
+  border-radius: 12px;
+  padding: 12px;
+}
+
+.script-help-card-title {
+  font-size: 11px;
+  font-weight: 750;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--text-muted);
+  margin-bottom: 10px;
+}
+
+.script-help-rows {
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
+}
+
+.script-help-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 10px;
+}
+
+.script-help-row code {
+  white-space: nowrap;
+}
+
+.script-help-hint {
+  color: var(--text-muted);
+  font-size: 11px;
+  white-space: nowrap;
+  opacity: 0.9;
+}
+
+.script-help-example {
+  margin-top: 12px;
+  background: rgba(255, 255, 255, 0.02);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  border-radius: 14px;
+  padding: 12px;
+}
+
+.script-help-example-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+}
+
+.script-help-example-actions {
+  display: flex;
+  gap: 8px;
+}
+
+.script-help-mini-btn {
+  background: rgba(255,255,255,0.06);
+  border: 1px solid rgba(255,255,255,0.10);
+  color: var(--text-main);
+  font-size: 12px;
+  padding: 6px 10px;
+  border-radius: 10px;
+  cursor: pointer;
+  transition: background 0.15s, border-color 0.15s;
+}
+
+.script-help-mini-btn:hover:not(:disabled) {
+  background: rgba(255,255,255,0.09);
+  border-color: rgba(255,255,255,0.16);
+}
+
+.script-help-mini-btn:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+.script-help-example-preview {
+  margin-top: 10px;
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  align-items: center;
+}
+
+.script-help-pre {
+  margin-top: 10px;
+  max-height: 260px;
+  overflow: auto;
+}
+
+@media (max-width: 560px) {
+  .script-help-grid { grid-template-columns: 1fr; }
+  .script-help-hint { white-space: normal; }
+  .script-help-example-preview { flex-direction: column; align-items: flex-start; }
+}
+
 /* Context Menu */
 .context-menu {
   position: fixed;

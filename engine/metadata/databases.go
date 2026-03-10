@@ -43,6 +43,11 @@ func GetDatabases(dbType string, db *sql.DB) ([]DatabaseInfo, error) {
 		query = "SHOW DATABASES"
 	case "sqlserver":
 		query = "SELECT name FROM sys.databases"
+	case "oracle":
+		query = "SELECT SYS_CONTEXT('USERENV','DB_NAME') FROM dual"
+	case "sqlite":
+		// SQLite is a single-file database. Expose a conventional name so the UI has something to show.
+		return []DatabaseInfo{{Name: "main"}}, nil
 	default:
 		return nil, fmt.Errorf("unsupported database type for metadata fetching: %s", dbType)
 	}

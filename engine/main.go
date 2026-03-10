@@ -58,6 +58,7 @@ func main() {
 
 	// Data Export
 	mux.HandleFunc("POST /api/connections/{id}/export", api.ExportHandler)
+	mux.HandleFunc("POST /api/scripts/run", api.RunScriptHandler)
 
 	// Metadata controls
 	mux.HandleFunc("GET /api/connections/{id}/metadata/databases", api.GetMetadataDatabasesHandler)

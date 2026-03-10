@@ -178,11 +178,33 @@ func TestBuildDSN_SqlServer_EmptyDBName(t *testing.T) {
 
 func TestBuildDSN_Unsupported(t *testing.T) {
 	config := store.ConnectionConfig{Host: "localhost", Port: 5432, User: "u", Password: "p"}
-	_, err := buildDSN(config, "oracle")
+	_, err := buildDSN(config, "duckdb")
 	if err == nil {
 		t.Error("expected error for unsupported driver")
 	}
 	if !strings.Contains(err.Error(), "unsupported") {
 		t.Errorf("unexpected error: %v", err)
+	}
+}
+
+func TestBuildDSN_SQLite_FilePath(t *testing.T) {
+	config := store.ConnectionConfig{FilePath: "/tmp/test.db"}
+	dsn, err := buildDSN(config, "sqlite")
+	if err != nil {
+		t.Fatalf("buildDSN: %v", err)
+	}
+	if dsn != "/tmp/test.db" {
+		t.Fatalf("unexpected sqlite dsn: %s", dsn)
+	}
+}
+
+func TestBuildDSN_SQLite_MissingFilePath(t *testing.T) {
+	config := store.ConnectionConfig{}
+	_, err := buildDSN(config, "sqlite")
+	if err == nil {
+		t.Fatalf("expected error")
+	}
+	if !strings.Contains(err.Error(), "file_path") {
+		t.Fatalf("unexpected error: %v", err)
 	}
 }

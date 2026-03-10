@@ -157,6 +157,26 @@
   color: var(--accent);
 }
 
+.new-script-btn {
+  display: flex;
+  align-items: center;
+  width: 100%;
+  padding: 6px 14px;
+  font-size: 11px;
+  color: #cfe3ff;
+  background: rgba(79,140,255,0.08);
+  border: 0;
+  border-bottom: 1px solid rgba(255,255,255,0.04);
+  cursor: pointer;
+  transition: background 0.12s ease, color 0.12s ease;
+  letter-spacing: 0.02em;
+}
+
+.new-script-btn:hover {
+  background: rgba(79,140,255,0.14);
+  color: #fff;
+}
+
 .new-folder-input-row {
   display: flex;
   align-items: center;
@@ -289,4 +309,3 @@
   opacity: 0.4;
   cursor: grab;
 }
-

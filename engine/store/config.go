@@ -8,6 +8,8 @@ type ConnectionConfig struct {
 	Host           string `json:"host"`
 	Port           int    `json:"port"`
 	DBName         string `json:"dbname"`
+	// FilePath is used by file-based databases such as SQLite (and future DuckDB).
+	FilePath       string `json:"file_path,omitempty"`
 	EnableSSL      bool   `json:"enable_ssl"`
 	SSLDir         string `json:"ssl_dir,omitempty"` // Deprecated in favor of specific paths
 	CACertPath     string `json:"ca_cert_path,omitempty"`
@@ -17,4 +19,3 @@ type ConnectionConfig struct {
 	Password       string `json:"password"`
 	FolderID       string `json:"folder_id,omitempty"`
 }
-

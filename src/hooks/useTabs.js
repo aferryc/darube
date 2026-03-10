@@ -83,9 +83,10 @@ export function useTabs(apiUrl, activeId, setLoading) {
     setActiveTabId(newId);
   };
 
-  const addSpecialTab = (name, type, updates = {}, connectionId = null) => {
+  const addSpecialTab = (name, type, updates = {}, connectionId) => {
     const newId = 'tab-' + Date.now();
-    const newTab = { ...EMPTY_TAB(tabs.length + 1, newId, type), name, connectionId: connectionId || activeId || null, ...updates };
+    const boundConnId = connectionId === undefined ? (activeId || null) : connectionId;
+    const newTab = { ...EMPTY_TAB(tabs.length + 1, newId, type), name, connectionId: boundConnId, ...updates };
     setTabs(prev => [...prev, newTab]);
     setActiveTabId(newId);
   };
