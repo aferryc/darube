@@ -1,0 +1,20 @@
+const net = require('net');
+
+/**
+ * Finds an open port by binding to port 0 (OS assigns a free port).
+ * @returns {Promise<number>} The allocated port number
+ */
+function getFreePort() {
+  return new Promise((resolve, reject) => {
+    const srv = net.createServer();
+    srv.unref();
+    srv.on('error', reject);
+    // Bind to localhost explicitly to avoid environments that disallow 0.0.0.0 binds.
+    srv.listen(0, '127.0.0.1', () => {
+      const port = srv.address().port;
+      srv.close(() => resolve(port));
+    });
+  });
+}
+
+module.exports = { getFreePort };

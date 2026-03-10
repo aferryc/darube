@@ -1,0 +1,47 @@
+@font-face {
+  font-family: 'Plus Jakarta Sans';
+  src: url('../assets/font/PlusJakartaSans-VariableFont_wght.ttf') format('truetype');
+  font-weight: 200 800;
+  font-style: normal;
+}
+
+@font-face {
+  font-family: 'JetBrains Mono';
+  src: url('../assets/font/JetBrainsMono-Regular.ttf') format('truetype');
+  font-weight: 400;
+  font-style: normal;
+}
+
+:root {
+  /* base surfaces */
+  --bg-dark: #0b1220;
+  --bg-sidebar: #0f172a;
+  --bg-card: #162033;
+  --bg-editor: #0d1424;
+
+  /* text */
+  --text-main: #e6edf6;
+  --text-muted: #94a3b8;
+
+  /* accent */
+  --accent: #4f8cff;
+  --accent-hover: #3b74d8;
+
+  /* state */
+  --success: #22c55e;
+  --danger: #ef4444;
+
+  /* borders */
+  --border: #1e2b45;
+
+  /* glow */
+  --shadow-soft: 0 10px 35px rgba(0,0,0,0.45);
+
+  /* UI font sizes */
+  --text-xs: 11px;
+  --text-sm: 12px;
+  --text-md: 13px;
+  --text-base: 14px;
+  --text-lg: 16px;
+  --text-xl: 18px;
+}

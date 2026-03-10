@@ -1,0 +1,14 @@
+{
+  "tabs": [
+    {
+      "id": "tab-1",
+      "name": "Query 1",
+      "query": "select * from sb_trading_history limit 10"
+    },
+    {
+      "id": "tab-1772766846384",
+      "name": "Query 2",
+      "query": "select sbth_id from sb_trading_history where accno"
+    }
+  ]
+}
