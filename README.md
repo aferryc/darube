@@ -1,16 +1,53 @@
-# React + Vite
+# Darube
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+Darube is a desktop database manager (think DBeaver / DataGrip) built with Electron + React, backed by a local Go “engine”.
 
-Currently, two official plugins are available:
+## Features
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Babel](https://babeljs.io/) (or [oxc](https://oxc.rs) when used in [rolldown-vite](https://vite.dev/guide/rolldown)) for Fast Refresh
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/) for Fast Refresh
+- Connections: create/save/edit/delete, connect/disconnect/reconnect
+- Databases: PostgreSQL, MySQL/MariaDB, SQL Server
+- Redis: connect, run commands, export results, edit values from the results pane
+- Query tabs: multiple tabs, autosaved workspace, tabs are bound to connections
+- Schema explorer: databases/schemas/tables/columns, view DML, view indexes
+- Export: CSV / JSON / Excel for SQL results; JSON/CSV/Excel for Redis results
+- Folders: organize connections (SQL and Redis) via drag and drop
 
-## React Compiler
+## Architecture
 
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
+- Electron main process spawns the Go engine on a free local port and passes it to the UI as `?enginePort=...`.
+- The Go engine is a local HTTP server that:
+  - persists connection configs and folders as JSON files
+  - keeps active connections in memory
+  - runs SQL queries/mutations and Redis commands
 
-## Expanding the ESLint configuration
+## Development
 
-If you are developing a production application, we recommend using TypeScript with type-aware lint rules enabled. Check out the [TS template](https://github.com/vitejs/vite/tree/main/packages/create-vite/template-react-ts) for information on how to integrate TypeScript and [`typescript-eslint`](https://typescript-eslint.io) in your project.
+### Prereqs
+
+- Node.js + npm
+- Go (engine)
+
+### Common Commands
+
+```sh
+# Start dev (Vite + Electron)
+make dev
+
+# Build the Go engine binary (required by Electron)
+make build-engine
+
+# Package the full app (engine + Vite + electron-builder)
+make build
+
+# Run tests
+make test
+```
+
+### Notes
+
+- If you change Go engine code, you must rebuild the engine binary and restart the Electron app:
+  - `make build-engine`
+- Workspace persistence:
+  - Query tabs are autosaved via the engine to `workspace.json`.
+  - Tabs are bound to a specific connection. Clicking another connection switches to its existing tab(s); if none exist, Darube prompts to create a new tab or rebind the current tab.
+
