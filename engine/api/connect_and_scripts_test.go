@@ -11,6 +11,7 @@ import (
 
 	"engine/store"
 
+	"github.com/DATA-DOG/go-sqlmock"
 	_ "modernc.org/sqlite"
 )
 
@@ -154,21 +155,26 @@ func TestRunScriptHandler_BasicAndErrors(t *testing.T) {
 	}
 }
 
-func TestGetMetadataEntitiesHandler_Sqlite(t *testing.T) {
+func TestGetMetadataEntitiesHandler_PostgresMock(t *testing.T) {
 	restore := setupConnectionsFile(t)
 	defer restore()
 
-	conn, err := sql.Open("sqlite", ":memory:")
+	conn, mock, err := sqlmock.New()
 	if err != nil {
 		t.Fatalf("open: %v", err)
 	}
 
-	if _, err := conn.Exec(`CREATE TABLE t (id INTEGER);`); err != nil {
-		t.Fatalf("setup: %v", err)
-	}
+	mock.ExpectQuery("FROM information_schema\\.tables").WillReturnRows(
+		sqlmock.NewRows([]string{"table_schema", "table_name", "table_type", "column_name", "data_type"}).
+			AddRow("public", "t", "BASE TABLE", "id", "int"),
+	)
+	mock.ExpectQuery("FROM pg_indexes").WillReturnRows(
+		sqlmock.NewRows([]string{"schemaname", "tablename", "indexname"}).
+			AddRow("public", "t", "t_pkey"),
+	)
 
 	connID := "meta-entities"
-	if err := store.WriteConnection(store.ConnectionConfig{ID: connID, ConnectionName: "m", DBType: "sqlite", FilePath: ":memory:"}); err != nil {
+	if err := store.WriteConnection(store.ConnectionConfig{ID: connID, ConnectionName: "m", DBType: "postgres"}); err != nil {
 		t.Fatalf("WriteConnection: %v", err)
 	}
 	store.AddActiveConnection(connID, conn)
@@ -180,6 +186,9 @@ func TestGetMetadataEntitiesHandler_Sqlite(t *testing.T) {
 	GetMetadataEntitiesHandler(rr, req)
 	if rr.Code != http.StatusOK {
 		t.Fatalf("expected 200, got %d body=%s", rr.Code, rr.Body.String())
+	}
+	if err := mock.ExpectationsWereMet(); err != nil {
+		t.Fatalf("sqlmock: %v", err)
 	}
 
 	// Also cover missing id.
