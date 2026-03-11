@@ -208,3 +208,28 @@ func TestBuildDSN_SQLite_MissingFilePath(t *testing.T) {
 		t.Fatalf("unexpected error: %v", err)
 	}
 }
+
+func TestBuildDSN_Oracle(t *testing.T) {
+	config := store.ConnectionConfig{
+		Host:     "oracle.example.com",
+		Port:     1521,
+		User:     "scott",
+		Password: "tiger",
+		DBName:   "orclpdb1",
+	}
+	dsn, err := buildDSN(config, "oracle")
+	if err != nil {
+		t.Fatalf("buildDSN: %v", err)
+	}
+	if dsn != "oracle://scott:tiger@oracle.example.com:1521/orclpdb1" {
+		t.Fatalf("unexpected oracle dsn: %s", dsn)
+	}
+}
+
+func TestConnect_SQLite(t *testing.T) {
+	conn, err := Connect(store.ConnectionConfig{DBType: "sqlite", FilePath: ":memory:"})
+	if err != nil {
+		t.Fatalf("Connect: %v", err)
+	}
+	_ = conn.Close()
+}

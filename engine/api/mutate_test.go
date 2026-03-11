@@ -166,3 +166,94 @@ func TestMutateDataHandler_Update(t *testing.T) {
 		t.Errorf("status: got %d, body: %s", rr.Code, rr.Body.String())
 	}
 }
+
+func TestMutateDataHandler_Delete(t *testing.T) {
+	connID, cleanup := setupMutateTest(t)
+	defer cleanup()
+
+	reqBody := MutateRequest{
+		Table: "users",
+		Mutations: []MutationAction{
+			{
+				Type:        "delete",
+				OriginalRow: map[string]interface{}{"id": float64(1), "name": "Alice"},
+			},
+		},
+	}
+	body, _ := json.Marshal(reqBody)
+	req := httptest.NewRequest(http.MethodPost, "/api/connections/"+connID+"/mutate", bytes.NewReader(body))
+	req.Header.Set("Content-Type", "application/json")
+	req.SetPathValue("id", connID)
+	rr := httptest.NewRecorder()
+	MutateDataHandler(rr, req)
+
+	if rr.Code != http.StatusOK {
+		t.Fatalf("status: got %d, body: %s", rr.Code, rr.Body.String())
+	}
+}
+
+func TestMutateDataHandler_ErrorsRollback(t *testing.T) {
+	connID, cleanup := setupMutateTest(t)
+	defer cleanup()
+
+	tests := []MutateRequest{
+		{
+			Table: "users",
+			Mutations: []MutationAction{
+				{Type: "insert", NewValues: map[string]interface{}{}},
+			},
+		},
+		{
+			Table: "users",
+			Mutations: []MutationAction{
+				{Type: "update", OriginalRow: map[string]interface{}{"id": float64(999)}, NewValues: map[string]interface{}{"name": "x"}},
+			},
+		},
+		{
+			Table: "users",
+			Mutations: []MutationAction{
+				{Type: "delete", OriginalRow: map[string]interface{}{"id": float64(999)}},
+			},
+		},
+		{
+			Table: "users",
+			Mutations: []MutationAction{
+				{Type: "unknown", NewValues: map[string]interface{}{"id": float64(2)}},
+			},
+		},
+	}
+
+	for _, tc := range tests {
+		body, _ := json.Marshal(tc)
+		req := httptest.NewRequest(http.MethodPost, "/api/connections/"+connID+"/mutate", bytes.NewReader(body))
+		req.Header.Set("Content-Type", "application/json")
+		req.SetPathValue("id", connID)
+		rr := httptest.NewRecorder()
+		MutateDataHandler(rr, req)
+		if rr.Code != http.StatusInternalServerError {
+			t.Fatalf("expected 500, got %d body=%s", rr.Code, rr.Body.String())
+		}
+	}
+}
+
+func TestPlaceholderAndQuoteIdent(t *testing.T) {
+	if placeholder("postgres", 3) != "$3" {
+		t.Fatalf("postgres placeholder")
+	}
+	if placeholder("sqlserver", 2) != "@p2" {
+		t.Fatalf("sqlserver placeholder")
+	}
+	if placeholder("sqlite", 1) != "?" {
+		t.Fatalf("default placeholder")
+	}
+
+	if quoteIdent("mysql", "a`b") != "`a``b`" {
+		t.Fatalf("mysql quote")
+	}
+	if quoteIdent("sqlserver", "a]b") != "[a]]b]" {
+		t.Fatalf("sqlserver quote")
+	}
+	if quoteIdent("postgres", `a"b`) != `"a""b"` {
+		t.Fatalf("postgres quote")
+	}
+}

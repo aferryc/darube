@@ -5,7 +5,9 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"net"
 	"strings"
+	"sync"
 	"time"
 
 	"engine/store"
@@ -13,8 +15,19 @@ import (
 	"github.com/redis/go-redis/v9"
 )
 
+// RedisClientAPI is the minimal surface Darube needs from go-redis.
+// Keeping it small makes the Redis layer testable without real sockets.
+type RedisClientAPI interface {
+	Do(ctx context.Context, args ...interface{}) *redis.Cmd
+	Ping(ctx context.Context) *redis.StatusCmd
+	Set(ctx context.Context, key string, value interface{}, expiration time.Duration) *redis.StatusCmd
+	Get(ctx context.Context, key string) *redis.StringCmd
+	Del(ctx context.Context, keys ...string) *redis.IntCmd
+	Close() error
+}
+
 type RedisClient struct {
-	UniversalClient redis.UniversalClient
+	Client         RedisClientAPI
 	Config         store.RedisConfig
 }
 
@@ -24,21 +37,51 @@ type RedisResult struct {
 	Message  string      `json:"message,omitempty"`
 }
 
+var (
+	redisDialerMu       sync.RWMutex
+	redisDialerOverride func(ctx context.Context, network, addr string) (net.Conn, error)
+)
+
+// SetRedisDialerForTest overrides the dialer used by NewRedisClient.
+// It is intended for tests only (to avoid real network IO).
+func SetRedisDialerForTest(dialer func(ctx context.Context, network, addr string) (net.Conn, error)) (restore func()) {
+	redisDialerMu.Lock()
+	prev := redisDialerOverride
+	redisDialerOverride = dialer
+	redisDialerMu.Unlock()
+
+	return func() {
+		redisDialerMu.Lock()
+		redisDialerOverride = prev
+		redisDialerMu.Unlock()
+	}
+}
+
+func getRedisDialerOverride() func(ctx context.Context, network, addr string) (net.Conn, error) {
+	redisDialerMu.RLock()
+	d := redisDialerOverride
+	redisDialerMu.RUnlock()
+	return d
+}
+
 func NewRedisClient(config store.RedisConfig) (*RedisClient, error) {
-	var client redis.UniversalClient
+	var client RedisClientAPI
 	addr := fmt.Sprintf("%s:%d", config.Host, config.Port)
+	dialer := getRedisDialerOverride()
 
 	if config.IsCluster {
 		client = redis.NewClusterClient(&redis.ClusterOptions{
 			Addrs:    []string{addr},
 			Username: config.User,
 			Password: config.Password,
+			Dialer:   dialer,
 		})
 	} else {
 		client = redis.NewClient(&redis.Options{
 			Addr:     addr,
 			Username: config.User,
 			Password: config.Password,
+			Dialer:   dialer,
 		})
 	}
 
@@ -51,13 +94,13 @@ func NewRedisClient(config store.RedisConfig) (*RedisClient, error) {
 	}
 
 	return &RedisClient{
-		UniversalClient: client,
+		Client:          client,
 		Config:          config,
 	}, nil
 }
 
 func (c *RedisClient) Close() error {
-	return c.UniversalClient.Close()
+	return c.Client.Close()
 }
 
 func (c *RedisClient) Execute(ctx context.Context, commandStr string) (*RedisResult, error) {
@@ -83,7 +126,7 @@ func (c *RedisClient) Execute(ctx context.Context, commandStr string) (*RedisRes
 		args[i] = p
 	}
 
-	cmd := c.UniversalClient.Do(ctx, append([]interface{}{parts[0]}, args...)...)
+	cmd := c.Client.Do(ctx, append([]interface{}{parts[0]}, args...)...)
 	val, err := cmd.Result()
 	if err != nil {
 		// go-redis uses redis.Nil to indicate "not found" (e.g. GET missing-key).

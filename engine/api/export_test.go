@@ -8,6 +8,7 @@ import (
 	"net/http/httptest"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 
 	"engine/store"
@@ -150,3 +151,113 @@ func TestExportHandler_DataCSV(t *testing.T) {
 	}
 }
 
+func TestExportHandler_DataJSON(t *testing.T) {
+	connID, exportDir, cleanup := setupExportTest(t)
+	defer cleanup()
+
+	params := ExportParams{
+		TargetType:      "data",
+		Format:          "json",
+		Headers:         true,
+		DestinationPath: exportDir,
+		Filename:        "data_export",
+		Columns:         []string{"id", "name"},
+		Data:            [][]interface{}{{1, "a"}, {2, "b"}},
+	}
+	body, _ := json.Marshal(params)
+	req := httptest.NewRequest(http.MethodPost, "/api/connections/"+connID+"/export", bytes.NewReader(body))
+	req.Header.Set("Content-Type", "application/json")
+	req.SetPathValue("id", connID)
+	rr := httptest.NewRecorder()
+	ExportHandler(rr, req)
+
+	if rr.Code != http.StatusOK {
+		t.Fatalf("status: got %d, body: %s", rr.Code, rr.Body.String())
+	}
+	var resp ExportResponse
+	_ = json.NewDecoder(rr.Body).Decode(&resp)
+	if !resp.Success {
+		t.Fatalf("expected success: %+v", resp)
+	}
+	b, err := os.ReadFile(resp.SavedTo)
+	if err != nil {
+		t.Fatalf("read: %v", err)
+	}
+	if !strings.Contains(string(b), `"id":1`) || !strings.Contains(string(b), `"name":"a"`) {
+		t.Fatalf("unexpected json: %s", string(b))
+	}
+}
+
+func TestExportHandler_DataSQL(t *testing.T) {
+	connID, exportDir, cleanup := setupExportTest(t)
+	defer cleanup()
+
+	params := ExportParams{
+		TargetType:      "data",
+		Format:          "sql",
+		DestinationPath: exportDir,
+		Filename:        "data_export",
+		Columns:         []string{"id", "name", "note"},
+		Data:            [][]interface{}{{1, "a", nil}, {2, "b", "it's ok"}},
+	}
+	body, _ := json.Marshal(params)
+	req := httptest.NewRequest(http.MethodPost, "/api/connections/"+connID+"/export", bytes.NewReader(body))
+	req.Header.Set("Content-Type", "application/json")
+	req.SetPathValue("id", connID)
+	rr := httptest.NewRecorder()
+	ExportHandler(rr, req)
+
+	if rr.Code != http.StatusOK {
+		t.Fatalf("status: got %d, body: %s", rr.Code, rr.Body.String())
+	}
+	var resp ExportResponse
+	_ = json.NewDecoder(rr.Body).Decode(&resp)
+	if !resp.Success {
+		t.Fatalf("expected success: %+v", resp)
+	}
+	b, err := os.ReadFile(resp.SavedTo)
+	if err != nil {
+		t.Fatalf("read: %v", err)
+	}
+	s := string(b)
+	if !strings.Contains(s, "INSERT INTO exported_results") {
+		t.Fatalf("expected default table name for non-table exports, got: %s", s)
+	}
+	if !strings.Contains(s, "NULL") {
+		t.Fatalf("expected NULL, got: %s", s)
+	}
+	if !strings.Contains(s, "it''s ok") {
+		t.Fatalf("expected escaped quote, got: %s", s)
+	}
+}
+
+func TestExportHandler_TableJSON(t *testing.T) {
+	connID, exportDir, cleanup := setupExportTest(t)
+	defer cleanup()
+
+	params := ExportParams{
+		TargetType:      "table",
+		Target:          "export_test",
+		Format:          "json",
+		DestinationPath: exportDir,
+		Filename:        "table_export",
+	}
+	body, _ := json.Marshal(params)
+	req := httptest.NewRequest(http.MethodPost, "/api/connections/"+connID+"/export", bytes.NewReader(body))
+	req.Header.Set("Content-Type", "application/json")
+	req.SetPathValue("id", connID)
+	rr := httptest.NewRecorder()
+	ExportHandler(rr, req)
+
+	if rr.Code != http.StatusOK {
+		t.Fatalf("status: got %d, body: %s", rr.Code, rr.Body.String())
+	}
+	var resp ExportResponse
+	_ = json.NewDecoder(rr.Body).Decode(&resp)
+	if !resp.Success {
+		t.Fatalf("expected success: %+v", resp)
+	}
+	if _, err := os.Stat(resp.SavedTo); err != nil {
+		t.Fatalf("file: %v", err)
+	}
+}
