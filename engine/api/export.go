@@ -95,6 +95,7 @@ func ExportHandler(w http.ResponseWriter, r *http.Request) {
 
 		go func(rs *sql.Rows) {
 			defer rs.Close()
+			defer close(rowChan)
 			for rs.Next() {
 				rawResult := make([][]byte, len(cols))
 				dest := make([]interface{}, len(cols))
@@ -116,6 +117,10 @@ func ExportHandler(w http.ResponseWriter, r *http.Request) {
 					}
 				}
 				rowChan <- row
+			}
+			if err := rs.Err(); err != nil {
+				errChan <- err
+				return
 			}
 			errChan <- nil
 		}(rows)
