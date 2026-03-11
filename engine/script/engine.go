@@ -494,17 +494,17 @@ func (*redisHandle) One(context.Context, string) (map[string]interface{}, error)
 func (*redisHandle) Scalar(context.Context, string) (interface{}, error) { return nil, ErrNotSupported }
 
 func (h *redisHandle) Set(ctx context.Context, key, value string) error {
-	if h.client == nil || h.client.UniversalClient == nil {
+	if h.client == nil || h.client.Client == nil {
 		return fmt.Errorf("redis connection is not active")
 	}
-	return h.client.UniversalClient.Set(ctx, key, value, 0).Err()
+	return h.client.Client.Set(ctx, key, value, 0).Err()
 }
 
 func (h *redisHandle) Get(ctx context.Context, key string) (*string, error) {
-	if h.client == nil || h.client.UniversalClient == nil {
+	if h.client == nil || h.client.Client == nil {
 		return nil, fmt.Errorf("redis connection is not active")
 	}
-	v, err := h.client.UniversalClient.Get(ctx, key).Result()
+	v, err := h.client.Client.Get(ctx, key).Result()
 	if err != nil {
 		if errors.Is(err, redis.Nil) {
 			return nil, nil
@@ -515,10 +515,10 @@ func (h *redisHandle) Get(ctx context.Context, key string) (*string, error) {
 }
 
 func (h *redisHandle) Del(ctx context.Context, key string) (int64, error) {
-	if h.client == nil || h.client.UniversalClient == nil {
+	if h.client == nil || h.client.Client == nil {
 		return 0, fmt.Errorf("redis connection is not active")
 	}
-	return h.client.UniversalClient.Del(ctx, key).Result()
+	return h.client.Client.Del(ctx, key).Result()
 }
 
 func normalizeSQLValue(v interface{}) interface{} {

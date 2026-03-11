@@ -21,6 +21,13 @@ func SetConnectionsFileForTest(path string) func() {
 	return func() { connectionsFile = old }
 }
 
+// SetRedisConnectionsFileForTest overrides redisConnectionsFile for tests. Returns a restore func.
+func SetRedisConnectionsFileForTest(path string) func() {
+	old := redisConnectionsFile
+	redisConnectionsFile = path
+	return func() { redisConnectionsFile = old }
+}
+
 // ReadConnections loads connections from the JSON file.
 func ReadConnections() ([]ConnectionConfig, error) {
 	fileMu.Lock()
@@ -62,7 +69,7 @@ func WriteConnection(config ConnectionConfig) error {
 	defer fileMu.Unlock()
 
 	var connections []ConnectionConfig
-	
+
 	// Ensure the parent directory exists if connectionsFile is a path
 	if dir := filepath.Dir(connectionsFile); dir != "." {
 		os.MkdirAll(dir, 0755)
@@ -136,6 +143,7 @@ func DeleteConnection(id string) error {
 
 	return nil
 }
+
 // ReadRedisConnections loads Redis connections from the JSON file.
 func ReadRedisConnections() ([]RedisConfig, error) {
 	fileMu.Lock()
@@ -177,7 +185,7 @@ func WriteRedisConnection(config RedisConfig) error {
 	defer fileMu.Unlock()
 
 	var connections []RedisConfig
-	
+
 	if dir := filepath.Dir(redisConnectionsFile); dir != "." {
 		os.MkdirAll(dir, 0755)
 	}

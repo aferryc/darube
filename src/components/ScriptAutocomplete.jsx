@@ -221,6 +221,8 @@ export function ScriptAutocomplete({ value, onChange, disabled, placeholder, sty
   // Close on click outside
   useEffect(() => {
     const close = (e) => {
+      // Dropdown is rendered in a portal; clicking it should not be treated as an outside click.
+      if (e?.target?.closest?.('.script-ac-dropdown')) return;
       if (containerRef.current && !containerRef.current.contains(e.target)) {
         setOpen(false);
         setDropdownPos(null);
