@@ -15,11 +15,14 @@ func setupFoldersTest(t *testing.T) func() {
 	dir := t.TempDir()
 	fPath := filepath.Join(dir, "folders.json")
 	cPath := filepath.Join(dir, "connections.json")
+	rPath := filepath.Join(dir, "redis_connections.json")
 	restoreF := store.SetFoldersFileForTest(fPath)
 	restoreC := store.SetConnectionsFileForTest(cPath)
+	restoreR := store.SetRedisConnectionsFileForTest(rPath)
 	return func() {
 		restoreF()
 		restoreC()
+		restoreR()
 	}
 }
 
@@ -149,5 +152,38 @@ func TestDeleteFolderHandler_MissingId(t *testing.T) {
 
 	if rr.Code != http.StatusBadRequest {
 		t.Errorf("status: got %d", rr.Code)
+	}
+}
+
+func TestDeleteFolderHandler_ClearsFolderLinks(t *testing.T) {
+	defer setupFoldersTest(t)()
+
+	folderID := "f1"
+	store.WriteFolder(store.FolderConfig{ID: folderID, Name: "ToDelete"})
+	_ = store.WriteConnection(store.ConnectionConfig{ID: "c1", ConnectionName: "db", DBType: "sqlite", FilePath: ":memory:", FolderID: folderID})
+	_ = store.WriteRedisConnection(store.RedisConfig{ID: "r1", ConnectionName: "cache", Host: "localhost", Port: 6379, FolderID: folderID})
+
+	req := httptest.NewRequest(http.MethodDelete, "/api/folders/"+folderID, nil)
+	req.SetPathValue("id", folderID)
+	rr := httptest.NewRecorder()
+	DeleteFolderHandler(rr, req)
+
+	if rr.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d body=%s", rr.Code, rr.Body.String())
+	}
+
+	c, err := store.GetConnection("c1")
+	if err != nil || c == nil {
+		t.Fatalf("GetConnection: %v", err)
+	}
+	if c.FolderID != "" {
+		t.Fatalf("expected connection folder_id cleared, got %q", c.FolderID)
+	}
+	rc, err := store.GetRedisConfig("r1")
+	if err != nil || rc == nil {
+		t.Fatalf("GetRedisConfig: %v", err)
+	}
+	if rc.FolderID != "" {
+		t.Fatalf("expected redis folder_id cleared, got %q", rc.FolderID)
 	}
 }

@@ -23,13 +23,19 @@ import (
 type fakeRedis struct {
 	mu sync.Mutex
 	kv map[string]string
+	closed bool
 }
 
 func newFakeRedis() *fakeRedis {
 	return &fakeRedis{kv: map[string]string{}}
 }
 
-func (f *fakeRedis) Close() error { return nil }
+func (f *fakeRedis) Close() error {
+	f.mu.Lock()
+	f.closed = true
+	f.mu.Unlock()
+	return nil
+}
 
 func (f *fakeRedis) Ping(ctx context.Context) *redis.StatusCmd {
 	cmd := redis.NewStatusCmd(ctx, "PING")
@@ -377,6 +383,116 @@ func TestRedisExportHandler(t *testing.T) {
 	RedisExportHandler(rr, req)
 	if rr.Code != http.StatusOK {
 		t.Errorf("hash: expected 200, got %d", rr.Code)
+	}
+}
+
+func TestDeleteRedisConnectionHandler_ClosesActiveConnection(t *testing.T) {
+	cleanup := setupRedisApiTest(t)
+	defer cleanup()
+
+	connID := "del-active"
+	f := newFakeRedis()
+	store.AddRedisConnection(connID, &db.RedisClient{Client: f, Config: store.RedisConfig{ID: connID}})
+	_ = store.WriteRedisConnection(store.RedisConfig{ID: connID, Host: "localhost"})
+
+	req := httptest.NewRequest(http.MethodDelete, "/api/redis/"+connID, nil)
+	req.SetPathValue("id", connID)
+	rr := httptest.NewRecorder()
+	DeleteRedisConnectionHandler(rr, req)
+
+	if rr.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d body=%s", rr.Code, rr.Body.String())
+	}
+	if store.IsRedisConnected(connID) {
+		t.Fatalf("expected connection removed from memory")
+	}
+	if !f.closed {
+		t.Fatalf("expected client to be closed")
+	}
+}
+
+func TestRedisHandlers_InvalidAndMissingInputs(t *testing.T) {
+	cleanup := setupRedisApiTest(t)
+	defer cleanup()
+
+	// TestRedisHandler invalid body.
+	req := httptest.NewRequest(http.MethodPost, "/api/redis/test", bytes.NewBufferString("not json"))
+	rr := httptest.NewRecorder()
+	TestRedisHandler(rr, req)
+	if rr.Code != http.StatusBadRequest {
+		t.Fatalf("TestRedisHandler invalid: expected 400, got %d", rr.Code)
+	}
+
+	// ConnectRedisHandler invalid body.
+	req = httptest.NewRequest(http.MethodPost, "/api/redis", bytes.NewBufferString("not json"))
+	rr = httptest.NewRecorder()
+	ConnectRedisHandler(rr, req)
+	if rr.Code != http.StatusBadRequest {
+		t.Fatalf("ConnectRedisHandler invalid: expected 400, got %d", rr.Code)
+	}
+
+	// RedisQueryHandler missing id.
+	body, _ := json.Marshal(RedisQueryRequest{Command: "PING"})
+	req = httptest.NewRequest(http.MethodPost, "/api/redis//query", bytes.NewReader(body))
+	rr = httptest.NewRecorder()
+	RedisQueryHandler(rr, req)
+	if rr.Code != http.StatusBadRequest {
+		t.Fatalf("RedisQueryHandler missing id: expected 400, got %d", rr.Code)
+	}
+
+	// RedisQueryHandler invalid body.
+	req = httptest.NewRequest(http.MethodPost, "/api/redis/x/query", bytes.NewBufferString("nope"))
+	req.SetPathValue("id", "x")
+	rr = httptest.NewRecorder()
+	RedisQueryHandler(rr, req)
+	if rr.Code != http.StatusBadRequest {
+		t.Fatalf("RedisQueryHandler invalid body: expected 400, got %d", rr.Code)
+	}
+
+	// RedisQueryHandler not active.
+	req = httptest.NewRequest(http.MethodPost, "/api/redis/x/query", bytes.NewReader(body))
+	req.SetPathValue("id", "x")
+	rr = httptest.NewRecorder()
+	RedisQueryHandler(rr, req)
+	if rr.Code != http.StatusOK {
+		t.Fatalf("RedisQueryHandler not active: expected 200, got %d", rr.Code)
+	}
+
+	// ConnectSavedRedisHandler already connected.
+	store.AddRedisConnection("x", &db.RedisClient{Client: newFakeRedis(), Config: store.RedisConfig{ID: "x"}})
+	body2, _ := json.Marshal(map[string]string{"id": "x"})
+	req = httptest.NewRequest(http.MethodPost, "/api/redis/reconnect", bytes.NewReader(body2))
+	rr = httptest.NewRecorder()
+	ConnectSavedRedisHandler(rr, req)
+	if rr.Code != http.StatusOK {
+		t.Fatalf("ConnectSavedRedisHandler already: expected 200, got %d", rr.Code)
+	}
+
+	// PatchRedisFolderHandler invalid body.
+	req = httptest.NewRequest(http.MethodPatch, "/api/redis/x/folder", bytes.NewBufferString("nope"))
+	req.SetPathValue("id", "x")
+	rr = httptest.NewRecorder()
+	PatchRedisFolderHandler(rr, req)
+	if rr.Code != http.StatusBadRequest {
+		t.Fatalf("PatchRedisFolderHandler invalid: expected 400, got %d", rr.Code)
+	}
+
+	// PatchRedisFolderHandler not found.
+	body3, _ := json.Marshal(map[string]string{"folder_id": "f1"})
+	req = httptest.NewRequest(http.MethodPatch, "/api/redis/missing/folder", bytes.NewReader(body3))
+	req.SetPathValue("id", "missing")
+	rr = httptest.NewRecorder()
+	PatchRedisFolderHandler(rr, req)
+	if rr.Code != http.StatusNotFound {
+		t.Fatalf("PatchRedisFolderHandler missing: expected 404, got %d", rr.Code)
+	}
+
+	// DeleteRedisConnectionHandler missing id.
+	req = httptest.NewRequest(http.MethodDelete, "/api/redis/", nil)
+	rr = httptest.NewRecorder()
+	DeleteRedisConnectionHandler(rr, req)
+	if rr.Code != http.StatusBadRequest {
+		t.Fatalf("DeleteRedisConnectionHandler missing id: expected 400, got %d", rr.Code)
 	}
 }
 
