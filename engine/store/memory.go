@@ -88,3 +88,10 @@ func IsRedisConnected(id string) bool {
 	_, ok := activeRedis[id]
 	return ok
 }
+
+// ClearRedisConnectionsForTest resets the active Redis connections map.
+func ClearRedisConnectionsForTest() {
+	memMu.Lock()
+	defer memMu.Unlock()
+	activeRedis = make(map[string]interface{})
+}

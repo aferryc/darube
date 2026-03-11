@@ -13,7 +13,7 @@
     "test": "vitest",
     "test:run": "vitest run",
     "test:coverage": "vitest run --coverage",
-    "test:go": "cd engine && go test ./..."
+    "test:go": "node scripts/test-go.js"
   },
   "dependencies": {
     "prismjs": "^1.30.0",

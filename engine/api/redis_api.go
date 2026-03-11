@@ -21,6 +21,8 @@ type RedisQueryResponse struct {
 	Error   string          `json:"error,omitempty"`
 }
 
+var newRedisClient = db.NewRedisClient
+
 // TestRedisHandler handles POST /api/redis/test
 func TestRedisHandler(w http.ResponseWriter, r *http.Request) {
 	var config store.RedisConfig
@@ -32,7 +34,7 @@ func TestRedisHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	client, err := db.NewRedisClient(config)
+	client, err := newRedisClient(config)
 	if err != nil {
 		sendJSONResponse(w, CommandOutput{
 			Success: false,
@@ -76,7 +78,7 @@ func ConnectRedisHandler(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	client, err := db.NewRedisClient(config)
+	client, err := newRedisClient(config)
 	if err != nil {
 		sendJSONResponse(w, CommandOutput{
 			Success: false,
@@ -125,7 +127,7 @@ func ConnectSavedRedisHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	client, err := db.NewRedisClient(*config)
+	client, err := newRedisClient(*config)
 	if err != nil {
 		sendJSONResponse(w, CommandOutput{Success: false, Error: err.Error()}, http.StatusOK)
 		return
