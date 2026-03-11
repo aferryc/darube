@@ -151,6 +151,43 @@ func TestExportHandler_DataCSV(t *testing.T) {
 	}
 }
 
+func TestExportHandler_DataCSV_NoHeaders(t *testing.T) {
+	connID, exportDir, cleanup := setupExportTest(t)
+	defer cleanup()
+
+	params := ExportParams{
+		TargetType:      "data",
+		Format:          "csv",
+		Headers:         false,
+		DestinationPath: exportDir,
+		Filename:        "data_export_no_headers",
+		Columns:         []string{"id", "name"},
+		Data:            [][]interface{}{{1, "a"}},
+	}
+	body, _ := json.Marshal(params)
+	req := httptest.NewRequest(http.MethodPost, "/api/connections/"+connID+"/export", bytes.NewReader(body))
+	req.Header.Set("Content-Type", "application/json")
+	req.SetPathValue("id", connID)
+	rr := httptest.NewRecorder()
+	ExportHandler(rr, req)
+
+	if rr.Code != http.StatusOK {
+		t.Fatalf("status: got %d, body: %s", rr.Code, rr.Body.String())
+	}
+	var resp ExportResponse
+	_ = json.NewDecoder(rr.Body).Decode(&resp)
+	if !resp.Success {
+		t.Fatalf("expected success: %+v", resp)
+	}
+	b, err := os.ReadFile(resp.SavedTo)
+	if err != nil {
+		t.Fatalf("read: %v", err)
+	}
+	if strings.HasPrefix(string(b), "id,name") {
+		t.Fatalf("expected no header row, got: %s", string(b))
+	}
+}
+
 func TestExportHandler_DataJSON(t *testing.T) {
 	connID, exportDir, cleanup := setupExportTest(t)
 	defer cleanup()
@@ -259,5 +296,41 @@ func TestExportHandler_TableJSON(t *testing.T) {
 	}
 	if _, err := os.Stat(resp.SavedTo); err != nil {
 		t.Fatalf("file: %v", err)
+	}
+}
+
+func TestExportHandler_DataExcel(t *testing.T) {
+	connID, exportDir, cleanup := setupExportTest(t)
+	defer cleanup()
+
+	params := ExportParams{
+		TargetType:      "data",
+		Format:          "excel",
+		Headers:         false,
+		DestinationPath: exportDir,
+		Filename:        "data_export_excel",
+		Columns:         []string{"id", "name"},
+		Data:            [][]interface{}{{1, "a"}, {2, nil}},
+	}
+	body, _ := json.Marshal(params)
+	req := httptest.NewRequest(http.MethodPost, "/api/connections/"+connID+"/export", bytes.NewReader(body))
+	req.Header.Set("Content-Type", "application/json")
+	req.SetPathValue("id", connID)
+	rr := httptest.NewRecorder()
+	ExportHandler(rr, req)
+
+	if rr.Code != http.StatusOK {
+		t.Fatalf("status: got %d, body: %s", rr.Code, rr.Body.String())
+	}
+	var resp ExportResponse
+	_ = json.NewDecoder(rr.Body).Decode(&resp)
+	if !resp.Success {
+		t.Fatalf("expected success: %+v", resp)
+	}
+	if _, err := os.Stat(resp.SavedTo); err != nil {
+		t.Fatalf("file not created: %v", err)
+	}
+	if !strings.HasSuffix(resp.SavedTo, ".xlsx") {
+		t.Fatalf("expected xlsx file, got %s", resp.SavedTo)
 	}
 }

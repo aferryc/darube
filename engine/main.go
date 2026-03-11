@@ -10,10 +10,11 @@ import (
 )
 
 var listenAndServe = http.ListenAndServe
+var fatalf = log.Fatalf
 
 func main() {
 	if err := run(); err != nil {
-		log.Fatalf("Server failed to start: %v", err)
+		fatalf("Server failed to start: %v", err)
 	}
 }
 

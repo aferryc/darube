@@ -69,3 +69,60 @@ func TestRun_CallsListenAndServe(t *testing.T) {
 	}
 }
 
+func TestMain_UsesRun(t *testing.T) {
+	t.Setenv("PORT", "12346")
+
+	prev := listenAndServe
+	t.Cleanup(func() { listenAndServe = prev })
+	listenAndServe = func(addr string, handler http.Handler) error {
+		if addr != ":12346" {
+			t.Fatalf("unexpected addr: %s", addr)
+		}
+		return http.ErrServerClosed
+	}
+
+	main()
+}
+
+func TestRun_DefaultPort(t *testing.T) {
+	// PORT unset => default to 3000.
+	t.Setenv("PORT", "")
+
+	prev := listenAndServe
+	t.Cleanup(func() { listenAndServe = prev })
+	listenAndServe = func(addr string, handler http.Handler) error {
+		if addr != ":3000" {
+			t.Fatalf("unexpected addr: %s", addr)
+		}
+		return http.ErrServerClosed
+	}
+
+	if err := run(); err != nil {
+		t.Fatalf("run: %v", err)
+	}
+}
+
+func TestMain_FatalOnRunError(t *testing.T) {
+	t.Setenv("PORT", "12347")
+
+	prevListen := listenAndServe
+	prevFatalf := fatalf
+	t.Cleanup(func() {
+		listenAndServe = prevListen
+		fatalf = prevFatalf
+	})
+
+	listenAndServe = func(string, http.Handler) error { return errSentinel("boom") }
+
+	called := false
+	fatalf = func(string, ...interface{}) { called = true }
+
+	main()
+	if !called {
+		t.Fatalf("expected fatalf to be called")
+	}
+}
+
+type errSentinel string
+
+func (e errSentinel) Error() string { return string(e) }

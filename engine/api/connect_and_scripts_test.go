@@ -2,7 +2,6 @@ package api
 
 import (
 	"bytes"
-	"database/sql"
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
@@ -41,6 +40,24 @@ func TestConnectNewHandler_SqliteValidationAndSuccess(t *testing.T) {
 	ConnectNewHandler(rr, req)
 	if rr.Code != http.StatusBadRequest {
 		t.Fatalf("expected 400, got %d", rr.Code)
+	}
+
+	// Validation: oracle requires host/port/user/dbname.
+	body, _ = json.Marshal(store.ConnectionConfig{ID: "o1", ConnectionName: "ora", DBType: "oracle"})
+	req = httptest.NewRequest(http.MethodPost, "/api/connections", bytes.NewReader(body))
+	rr = httptest.NewRecorder()
+	ConnectNewHandler(rr, req)
+	if rr.Code != http.StatusBadRequest {
+		t.Fatalf("oracle: expected 400, got %d", rr.Code)
+	}
+
+	// Validation: default requires host/user.
+	body, _ = json.Marshal(store.ConnectionConfig{ID: "p1", ConnectionName: "pg", DBType: "postgres"})
+	req = httptest.NewRequest(http.MethodPost, "/api/connections", bytes.NewReader(body))
+	rr = httptest.NewRecorder()
+	ConnectNewHandler(rr, req)
+	if rr.Code != http.StatusBadRequest {
+		t.Fatalf("default: expected 400, got %d", rr.Code)
 	}
 
 	// Success: sqlite in-memory.
@@ -102,6 +119,36 @@ func TestConnectSavedHandler_SqliteNotFoundConnectAndAlreadyConnected(t *testing
 	}
 
 	_ = store.RemoveActiveConnection("c1")
+}
+
+func TestConnectSavedHandler_MethodAndBodyValidation(t *testing.T) {
+	restore := setupConnectionsFile(t)
+	defer restore()
+
+	// Method not allowed.
+	req := httptest.NewRequest(http.MethodGet, "/api/connections/connect", nil)
+	rr := httptest.NewRecorder()
+	ConnectSavedHandler(rr, req)
+	if rr.Code != http.StatusMethodNotAllowed {
+		t.Fatalf("expected 405, got %d", rr.Code)
+	}
+
+	// Invalid body.
+	req = httptest.NewRequest(http.MethodPost, "/api/connections/connect", bytes.NewBufferString("nope"))
+	rr = httptest.NewRecorder()
+	ConnectSavedHandler(rr, req)
+	if rr.Code != http.StatusBadRequest {
+		t.Fatalf("expected 400, got %d", rr.Code)
+	}
+
+	// Missing id.
+	body, _ := json.Marshal(ConnectSavedRequest{ID: ""})
+	req = httptest.NewRequest(http.MethodPost, "/api/connections/connect", bytes.NewReader(body))
+	rr = httptest.NewRecorder()
+	ConnectSavedHandler(rr, req)
+	if rr.Code != http.StatusBadRequest {
+		t.Fatalf("expected 400, got %d", rr.Code)
+	}
 }
 
 func TestRunScriptHandler_BasicAndErrors(t *testing.T) {

@@ -84,3 +84,36 @@ func TestSaveWorkspaceHandler_InvalidPayload(t *testing.T) {
 		t.Errorf("status: got %d", rr.Code)
 	}
 }
+
+func TestGetWorkspaceHandler_LoadError(t *testing.T) {
+	dir := t.TempDir()
+	// Point workspace "file" at a directory so ReadFile fails.
+	restore := store.SetWorkspaceFileForTest(dir)
+	defer restore()
+
+	req := httptest.NewRequest(http.MethodGet, "/api/workspace", nil)
+	rr := httptest.NewRecorder()
+	GetWorkspaceHandler(rr, req)
+
+	if rr.Code != http.StatusInternalServerError {
+		t.Fatalf("expected 500, got %d body=%s", rr.Code, rr.Body.String())
+	}
+}
+
+func TestSaveWorkspaceHandler_SaveError(t *testing.T) {
+	dir := t.TempDir()
+	// Point workspace "file" at a directory so WriteFile fails.
+	restore := store.SetWorkspaceFileForTest(dir)
+	defer restore()
+
+	ws := store.WorkspaceState{Tabs: []store.TabState{{ID: "t1", Name: "n", Query: "q"}}}
+	body, _ := json.Marshal(ws)
+	req := httptest.NewRequest(http.MethodPost, "/api/workspace", bytes.NewReader(body))
+	req.Header.Set("Content-Type", "application/json")
+	rr := httptest.NewRecorder()
+	SaveWorkspaceHandler(rr, req)
+
+	if rr.Code != http.StatusInternalServerError {
+		t.Fatalf("expected 500, got %d body=%s", rr.Code, rr.Body.String())
+	}
+}
