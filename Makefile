@@ -34,7 +34,7 @@ test: test-fe test-be
 
 # ── Build the Go engine binary ───────────────────────────────────────────────
 build-engine:
-	cd engine && CGO_ENABLED=0 go build -o engine .
+	cd engine && CGO_ENABLED=0 go build -o bin/engine .
 
 # ── Full production build (engine → Vite → electron-builder) ─────────────────
 # electron-builder copies engine/engine via extraResources so it must exist first.
