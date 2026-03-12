@@ -25,6 +25,7 @@ dist-ssr
 
 connections.json
 folders.json
+workspace.json
 
 bin
 release
