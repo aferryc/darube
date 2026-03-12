@@ -64,8 +64,8 @@
     },
     "extraResources": [
       {
-        "from": "engine/engine",
-        "to": "engine/engine"
+        "from": "engine/bin/engine",
+        "to": "engine/bin/engine"
       }
     ]
   }
