@@ -14,7 +14,7 @@
   background: transparent;
   border: 1px solid var(--border);
   font-family: "JetBrains Mono", "Menlo", monospace;
-  font-size: 14px;
+  font-size: 12px;
   overflow-y: auto;
 }
 

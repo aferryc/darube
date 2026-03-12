@@ -8,7 +8,7 @@
 
 .plan-summary {
   font-family: var(--text-xs);
-  font-size: 13px;
+  font-size: 12px;
   margin-bottom: 20px;
   padding: 10px 20px;
   background: var(--bg-dark);
@@ -18,8 +18,8 @@
 }
 
 .plan-raw-view {
-  font-family: 'JetBrains Mono', monospace;
-  font-size: 13px;
+  font-family: "JetBrains Mono", monospace;
+  font-size: 12px;
   padding: 20px;
   overflow: auto;
   height: 100%;
@@ -53,7 +53,7 @@
   border-radius: 8px;
   padding: 12px 16px;
   width: 240px;
-  box-shadow: 0 4px 12px rgba(0,0,0,0.25);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.25);
   margin-bottom: 20px;
   position: relative;
   z-index: 2;
@@ -67,7 +67,7 @@
   padding-bottom: 6px;
   margin-bottom: 8px;
   font-weight: 600;
-  font-size: 13px;
+  font-size: 12px;
 }
 
 .node-type {
@@ -101,7 +101,7 @@
 }
 
 .plan-tree-children::before {
-  content: '';
+  content: "";
   position: absolute;
   top: 0;
   left: 50%;
@@ -118,7 +118,7 @@
 }
 
 .plan-tree-child::before {
-  content: '';
+  content: "";
   position: absolute;
   top: -24px;
   left: 50%;
@@ -129,7 +129,7 @@
 
 .plan-tree-child:first-child::after,
 .plan-tree-child:last-child::after {
-  content: '';
+  content: "";
   position: absolute;
   top: -24px;
   width: 50%;
@@ -137,12 +137,18 @@
   background-color: var(--border);
 }
 
-.plan-tree-child:first-child::after { right: 0; }
-.plan-tree-child:last-child::after { left: 0; }
-.plan-tree-child:only-child::after { display: none; }
+.plan-tree-child:first-child::after {
+  right: 0;
+}
+.plan-tree-child:last-child::after {
+  left: 0;
+}
+.plan-tree-child:only-child::after {
+  display: none;
+}
 
 .plan-tree-child:not(:first-child):not(:last-child)::after {
-  content: '';
+  content: "";
   position: absolute;
   top: -24px;
   left: 0;
