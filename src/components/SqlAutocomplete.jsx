@@ -1,3 +1,4 @@
+/* @refresh reset */
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { createPortal } from 'react-dom';
 import Editor from 'react-simple-code-editor';
@@ -30,15 +31,17 @@ const SQL_FUNCTIONS = [
 
 import { parseContext } from '../utils/sqlContext'
 import { getTextareaCaretViewportPosition } from '../utils/textareaCaret'
+import { useBoxSelection } from '../hooks/useBoxSelection';
 
 // ──────────────────────────────────────────
 // Main component
 // ──────────────────────────────────────────
-export function SqlAutocomplete({ value, onChange, onKeyDown, disabled, placeholder, style, apiUrl, connectionId }) {
+export function SqlAutocomplete({ value, onChange, onKeyDown, onContextMenu, disabled, placeholder, style, apiUrl, connectionId }) {
   const [suggestions, setSuggestions] = useState([]);
   const [selectedIdx, setSelectedIdx] = useState(0);
   const [open, setOpen] = useState(false);
   const [dropdownPos, setDropdownPos] = useState(null);
+  const [editorRoot, setEditorRoot] = useState(null);
 
   const colCache = useRef({});
   const tableCache = useRef({});
@@ -46,6 +49,31 @@ export function SqlAutocomplete({ value, onChange, onKeyDown, disabled, placehol
   // Keep latest value in a ref for the keyup listener
   const valueRef = useRef(value);
   useEffect(() => { valueRef.current = value; }, [value]);
+
+  const boxSel = useBoxSelection({
+    containerRef,
+    valueRef,
+    onChange,
+    disabled,
+    onActivate: () => {
+      setOpen(false);
+      setDropdownPos(null);
+    },
+  });
+
+  useEffect(() => {
+    const container = containerRef.current;
+    if (!container) return;
+    const find = () => container.querySelector('.query-editor-container');
+    const el = find();
+    if (el) { setEditorRoot(el); return; }
+    const obs = new MutationObserver(() => {
+      const next = find();
+      if (next) { setEditorRoot(next); obs.disconnect(); }
+    });
+    obs.observe(container, { childList: true, subtree: true });
+    return () => obs.disconnect();
+  }, []);
 
   // ── Fetch & cache tables ──
   const fetchTables = useCallback(async () => {
@@ -172,7 +200,7 @@ export function SqlAutocomplete({ value, onChange, onKeyDown, disabled, placehol
     }
   }, [buildSuggestions]);
 
-  // Attach listener once textarea is mounted
+  // Attach listeners once textarea is mounted
   useEffect(() => {
     const container = containerRef.current;
     if (!container) return;
@@ -180,7 +208,9 @@ export function SqlAutocomplete({ value, onChange, onKeyDown, disabled, placehol
     const attach = () => {
       const ta = container.querySelector('textarea');
       if (ta) {
+        ta.dataset.darubeEditorRole = 'sql';
         ta.addEventListener('keyup', refreshSuggestions);
+        if (onContextMenu) ta.addEventListener('contextmenu', onContextMenu);
         return ta;
       }
       return null;
@@ -195,8 +225,12 @@ export function SqlAutocomplete({ value, onChange, onKeyDown, disabled, placehol
       obs.observe(container, { childList: true, subtree: true });
       return () => obs.disconnect();
     }
-    return () => { if (ta) ta.removeEventListener('keyup', refreshSuggestions); };
-  }, [refreshSuggestions]);
+    return () => {
+      if (!ta) return;
+      ta.removeEventListener('keyup', refreshSuggestions);
+      if (onContextMenu) ta.removeEventListener('contextmenu', onContextMenu);
+    };
+  }, [refreshSuggestions, onContextMenu]);
 
   // Invalidate caches on connection change
   useEffect(() => {
@@ -275,6 +309,19 @@ export function SqlAutocomplete({ value, onChange, onKeyDown, disabled, placehol
         placeholder={placeholder}
         style={style}
       />
+
+      {editorRoot && boxSel.active && boxSel.overlay && createPortal(
+        <div className="box-selection-overlay" aria-hidden="true">
+          {boxSel.overlay.map((r) => (
+            <div
+              key={`box-${r.row}`}
+              className="box-selection-rect"
+              style={{ top: `${r.top}px`, left: `${r.left}px`, width: `${r.width}px`, height: `${r.height}px` }}
+            />
+          ))}
+        </div>,
+        editorRoot
+      )}
 
       {open && suggestions.length > 0 && dropdownPos && createPortal(
         <ul

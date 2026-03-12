@@ -137,9 +137,9 @@ describe('ConnectionModal (SQL types)', () => {
   it('renders folder selector and browse button updates sqlite file_path when electron is available', async () => {
     const user = userEvent.setup()
 
-    const invoke = vi.fn().mockResolvedValue('/tmp/test.sqlite')
-    const prevRequire = window.require
-    window.require = () => ({ ipcRenderer: { invoke } })
+    const openFile = vi.fn().mockResolvedValue('/tmp/test.sqlite')
+    const prevDarube = window.darube
+    window.darube = { ...(prevDarube || {}), openFile }
 
     render(<WrapperWithFolders />)
 
@@ -152,9 +152,9 @@ describe('ConnectionModal (SQL types)', () => {
     // Browse button should update file path.
     const browse = screen.getByRole('button', { name: 'Browse...' })
     await user.click(browse)
-    expect(invoke).toHaveBeenCalled()
+    expect(openFile).toHaveBeenCalled()
     expect(screen.getByPlaceholderText(/db\.sqlite/)).toHaveValue('/tmp/test.sqlite')
 
-    window.require = prevRequire
+    window.darube = prevDarube
   })
 })

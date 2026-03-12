@@ -1,9 +1,11 @@
+/* @refresh reset */
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { createPortal } from 'react-dom';
 import Editor from 'react-simple-code-editor';
 import Prism from 'prismjs';
 import 'prismjs/components/prism-sql'; // We'll use SQL for basic highlighting or customize it
 import { getTextareaCaretViewportPosition } from '../utils/textareaCaret'
+import { useBoxSelection } from '../hooks/useBoxSelection';
 
 const REDIS_COMMANDS = [
   { label: 'GET', insert: 'GET ', hint: 'key', description: 'Get the value of a key' },
@@ -31,12 +33,40 @@ const REDIS_COMMANDS = [
   { label: 'CONFIG GET', insert: 'CONFIG GET ', hint: 'parameter', description: 'Get the value of a configuration parameter' },
 ];
 
-export function RedisAutocomplete({ value, onChange, onKeyDown, disabled, placeholder, style }) {
+export function RedisAutocomplete({ value, onChange, onKeyDown, onContextMenu, disabled, placeholder, style }) {
   const [suggestions, setSuggestions] = useState([]);
   const [selectedIdx, setSelectedIdx] = useState(0);
   const [open, setOpen] = useState(false);
   const [dropdownPos, setDropdownPos] = useState(null);
+  const [editorRoot, setEditorRoot] = useState(null);
   const containerRef = useRef(null);
+  const valueRef = useRef(value);
+  useEffect(() => { valueRef.current = value; }, [value]);
+
+  const boxSel = useBoxSelection({
+    containerRef,
+    valueRef,
+    onChange,
+    disabled,
+    onActivate: () => {
+      setOpen(false);
+      setDropdownPos(null);
+    },
+  });
+
+  useEffect(() => {
+    const container = containerRef.current;
+    if (!container) return;
+    const find = () => container.querySelector('.query-editor-container');
+    const el = find();
+    if (el) { setEditorRoot(el); return; }
+    const obs = new MutationObserver(() => {
+      const next = find();
+      if (next) { setEditorRoot(next); obs.disconnect(); }
+    });
+    obs.observe(container, { childList: true, subtree: true });
+    return () => obs.disconnect();
+  }, []);
 
   const buildSuggestions = (text) => {
     const parts = text.split(/\s+/);
@@ -109,6 +139,30 @@ export function RedisAutocomplete({ value, onChange, onKeyDown, disabled, placeh
     return () => document.removeEventListener('mousedown', close);
   }, []);
 
+  // Attach context menu handler to underlying textarea (react-simple-code-editor wraps a textarea)
+  useEffect(() => {
+    if (!onContextMenu) return;
+    const container = containerRef.current;
+    if (!container) return;
+    const attach = () => {
+      const ta = container.querySelector('textarea');
+      if (!ta) return null;
+      ta.dataset.darubeEditorRole = 'redis';
+      ta.addEventListener('contextmenu', onContextMenu);
+      return ta;
+    };
+    let ta = attach();
+    if (!ta) {
+      const obs = new MutationObserver(() => {
+        ta = attach();
+        if (ta) obs.disconnect();
+      });
+      obs.observe(container, { childList: true, subtree: true });
+      return () => obs.disconnect();
+    }
+    return () => { if (ta) ta.removeEventListener('contextmenu', onContextMenu); };
+  }, [onContextMenu]);
+
   return (
     <div ref={containerRef} className="redis-autocomplete-container">
       <Editor
@@ -124,6 +178,19 @@ export function RedisAutocomplete({ value, onChange, onKeyDown, disabled, placeh
         placeholder={placeholder || 'Enter Redis command (e.g. GET mykey)'}
         style={style}
       />
+
+      {editorRoot && boxSel.active && boxSel.overlay && createPortal(
+        <div className="box-selection-overlay" aria-hidden="true">
+          {boxSel.overlay.map((r) => (
+            <div
+              key={`box-${r.row}`}
+              className="box-selection-rect"
+              style={{ top: `${r.top}px`, left: `${r.left}px`, width: `${r.width}px`, height: `${r.height}px` }}
+            />
+          ))}
+        </div>,
+        editorRoot
+      )}
 
       {open && dropdownPos && createPortal(
         <ul

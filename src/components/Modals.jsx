@@ -1,30 +1,72 @@
 export function ContextMenu({ contextMenu, onAction }) {
   if (!contextMenu.visible) return null;
 
+  const item = (label, action, { disabled = false } = {}) => (
+    <div
+      className={`context-menu-item${disabled ? ' disabled' : ''}`}
+      onClick={disabled ? undefined : () => onAction(action)}
+      role="menuitem"
+      aria-disabled={disabled ? 'true' : 'false'}
+    >
+      {label}
+    </div>
+  );
+
   return (
     <div className="context-menu" style={{ top: `${contextMenu.y}px`, left: `${contextMenu.x}px` }}>
       {contextMenu.type === 'connection' && (
         <>
-          <div className="context-menu-item" onClick={() => onAction('duplicate')}>📝 Duplicate Connection</div>
-          <div className="context-menu-item" onClick={() => onAction('rename')}>✏️ Rename Connection</div>
+          {item('📝 Duplicate Connection', 'duplicate')}
+          {item('✏️ Rename Connection', 'rename')}
           <div className="context-menu-divider" />
           {contextMenu.data.status === 'connected'
-            ? <div className="context-menu-item" onClick={() => onAction('disconnect')}>🛑 Disconnect</div>
-            : <div className="context-menu-item" onClick={() => onAction('connect')}>🟢 Connect</div>
+            ? item('🛑 Disconnect', 'disconnect')
+            : item('🟢 Connect', 'connect')
           }
-          <div className="context-menu-item" onClick={() => onAction('refresh')}>🔄 Refresh</div>
+          {item('🔄 Refresh', 'refresh')}
           <div className="context-menu-divider" />
-          <div className="context-menu-item text-danger" onClick={() => onAction('delete')}>🗑️ Delete Connection</div>
+          <div className="context-menu-item text-danger" onClick={() => onAction('delete')} role="menuitem">🗑️ Delete Connection</div>
         </>
       )}
       {contextMenu.type === 'table' && (
         <>
-          <div className="context-menu-item" onClick={() => onAction('view_data')}>👁️ View Data (TOP 100)</div>
+          {item('👁️ View Data (TOP 100)', 'view_data')}
           <div className="context-menu-divider" />
-          <div className="context-menu-item" onClick={() => onAction('view_dml')}>📜 View DB DML</div>
-          <div className="context-menu-item" onClick={() => onAction('view_indexes')}>🔑 View Indexes</div>
+          {item('📜 View DB DML', 'view_dml')}
+          {item('🔑 View Indexes', 'view_indexes')}
           <div className="context-menu-divider" />
-          <div className="context-menu-item" onClick={() => onAction('export')}>📤 Export Data...</div>
+          {item('📤 Export Data...', 'export')}
+        </>
+      )}
+      {contextMenu.type === 'text' && (
+        <>
+          {(contextMenu.data?.editorRole === 'sql' || contextMenu.data?.editorRole === 'redis') && (
+            <>
+              {item(
+                contextMenu.data?.hasSelection
+                  ? 'Run Selected'
+                  : (contextMenu.data?.editorRole === 'redis' ? 'Run Command' : 'Run Query'),
+                'run_query',
+                { disabled: !(contextMenu.data?.hasSelection || contextMenu.data?.hasText) },
+              )}
+              <div className="context-menu-divider" />
+            </>
+          )}
+          {item('Cut', 'cut', { disabled: contextMenu.data?.readOnly || !contextMenu.data?.hasSelection })}
+          {item('Copy', 'copy', { disabled: !contextMenu.data?.hasSelection })}
+          {item('Paste', 'paste', { disabled: contextMenu.data?.readOnly })}
+          <div className="context-menu-divider" />
+          {item('Select All', 'select_all')}
+        </>
+      )}
+      {contextMenu.type === 'results' && (
+        <>
+          {item('Copy Cell', 'copy_cell', { disabled: contextMenu.data?.colIndex == null })}
+          {item('Copy Row (TSV)', 'copy_row_tsv', { disabled: contextMenu.data?.rowIndex == null })}
+          {item('Copy Row (JSON)', 'copy_row_json', { disabled: contextMenu.data?.rowIndex == null })}
+          <div className="context-menu-divider" />
+          {item('Copy Selected Rows (TSV)', 'copy_selected_tsv', { disabled: !(contextMenu.data?.selectedRows?.length > 0) })}
+          {item('Export Selected Rows...', 'export_selected', { disabled: !(contextMenu.data?.selectedRows?.length > 0) })}
         </>
       )}
     </div>

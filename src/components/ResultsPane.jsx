@@ -67,7 +67,15 @@ export function ResultsPane({
                       const isMutated = row._mutatedCols?.[col] || row._isInserted;
                       const isEditing = editingCell.uiId === uiId && editingCell.colName === col;
                       return (
-                        <td key={`${uiId}-${col}`} className={isMutated ? 'mutated-cell' : ''} onDoubleClick={() => handleCellDoubleClick(uiId, col, cellValue)}>
+                        <td
+                          key={`${uiId}-${col}`}
+                          className={isMutated ? 'mutated-cell' : ''}
+                          onDoubleClick={() => handleCellDoubleClick(uiId, col, cellValue)}
+                          onContextMenu={(e) => {
+                            e.stopPropagation();
+                            handleRowContextMenu(e, absoluteIndex, { colIndex: j, colName: col, cellValue });
+                          }}
+                        >
                           {isEditing ? (
                             <input
                               autoFocus

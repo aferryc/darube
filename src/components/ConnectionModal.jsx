@@ -50,9 +50,8 @@ export function ConnectionModal({
   const onBrowseClick = async (e) => {
     const field = e.currentTarget?.dataset?.field;
     if (!field) return;
-    if (window.require) {
-      const { ipcRenderer } = window.require('electron');
-      const path = await ipcRenderer.invoke('dialog:openFile');
+    if (window.darube?.openFile) {
+      const path = await window.darube.openFile();
       if (path) update(field, path);
     }
   };

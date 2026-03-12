@@ -1,3 +1,4 @@
+/* @refresh reset */
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import Editor from 'react-simple-code-editor';
@@ -5,6 +6,7 @@ import Prism from 'prismjs';
 import 'prismjs/components/prism-javascript';
 
 import { getTextareaCaretViewportPosition } from '../utils/textareaCaret';
+import { useBoxSelection } from '../hooks/useBoxSelection';
 
 const SUGGESTIONS = [
   { label: 'db.conn', insert: 'db.conn("', tail: '")', kind: 'api', desc: 'Get a connection by ID (or name)' },
@@ -44,17 +46,43 @@ function getTokenContext(text, cursor) {
   return { token, tokenStart, prefix, fragment, hasDot };
 }
 
-export function ScriptAutocomplete({ value, onChange, disabled, placeholder, style, connections }) {
+export function ScriptAutocomplete({ value, onChange, onContextMenu, disabled, placeholder, style, connections }) {
   const [open, setOpen] = useState(false);
   const [suggestions, setSuggestions] = useState([]);
   const [selectedIdx, setSelectedIdx] = useState(0);
   const [dropdownPos, setDropdownPos] = useState(null);
+  const [editorRoot, setEditorRoot] = useState(null);
 
   const containerRef = useRef(null);
   const connectionsRef = useRef([]);
   const valueRef = useRef(value);
   useEffect(() => { valueRef.current = value; }, [value]);
   useEffect(() => { connectionsRef.current = connections || []; }, [connections]);
+
+  const boxSel = useBoxSelection({
+    containerRef,
+    valueRef,
+    onChange,
+    disabled,
+    onActivate: () => {
+      setOpen(false);
+      setDropdownPos(null);
+    },
+  });
+
+  useEffect(() => {
+    const container = containerRef.current;
+    if (!container) return;
+    const find = () => container.querySelector('.query-editor-container');
+    const el = find();
+    if (el) { setEditorRoot(el); return; }
+    const obs = new MutationObserver(() => {
+      const next = find();
+      if (next) { setEditorRoot(next); obs.disconnect(); }
+    });
+    obs.observe(container, { childList: true, subtree: true });
+    return () => obs.disconnect();
+  }, []);
 
   const buildSuggestions = useCallback((text, cursor) => {
     // Context: db.conn(<here>)
@@ -194,14 +222,16 @@ export function ScriptAutocomplete({ value, onChange, disabled, placeholder, sty
     }
   }, [open, suggestions, selectedIdx, insertSuggestion]);
 
-  // Attach keyup listener directly to textarea (same approach as SqlAutocomplete).
+  // Attach listeners directly to textarea (same approach as SqlAutocomplete).
   useEffect(() => {
     const container = containerRef.current;
     if (!container) return;
     const attach = () => {
       const ta = container.querySelector('textarea');
       if (ta) {
+        ta.dataset.darubeEditorRole = 'script';
         ta.addEventListener('keyup', refresh);
+        if (onContextMenu) ta.addEventListener('contextmenu', onContextMenu);
         return ta;
       }
       return null;
@@ -215,8 +245,12 @@ export function ScriptAutocomplete({ value, onChange, disabled, placeholder, sty
       obs.observe(container, { childList: true, subtree: true });
       return () => obs.disconnect();
     }
-    return () => { if (ta) ta.removeEventListener('keyup', refresh); };
-  }, [refresh]);
+    return () => {
+      if (!ta) return;
+      ta.removeEventListener('keyup', refresh);
+      if (onContextMenu) ta.removeEventListener('contextmenu', onContextMenu);
+    };
+  }, [refresh, onContextMenu]);
 
   // Close on click outside
   useEffect(() => {
@@ -253,6 +287,19 @@ export function ScriptAutocomplete({ value, onChange, disabled, placeholder, sty
         placeholder={placeholder}
         style={style}
       />
+
+      {editorRoot && boxSel.active && boxSel.overlay && createPortal(
+        <div className="box-selection-overlay" aria-hidden="true">
+          {boxSel.overlay.map((r) => (
+            <div
+              key={`box-${r.row}`}
+              className="box-selection-rect"
+              style={{ top: `${r.top}px`, left: `${r.left}px`, width: `${r.width}px`, height: `${r.height}px` }}
+            />
+          ))}
+        </div>,
+        editorRoot
+      )}
 
       {open && dropdownPos && createPortal(
         <ul

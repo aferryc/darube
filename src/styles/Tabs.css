@@ -2,8 +2,60 @@
   display: flex;
   background-color: var(--bg-sidebar);
   border-bottom: 1px solid var(--border);
-  overflow-x: auto;
   align-items: stretch;
+  overflow: hidden;
+}
+
+.tabs-scroll {
+  display: flex;
+  flex: 1 1 auto;
+  min-width: 0;
+  overflow-x: auto;
+  overflow-y: hidden;
+}
+
+.tabs-actions {
+  display: flex;
+  gap: 8px;
+  padding: 0 8px;
+  align-items: center;
+  flex: 0 0 auto;
+  border-left: 1px solid var(--border);
+}
+
+.tab-context-menu {
+  position: fixed;
+  z-index: 9999;
+  min-width: 220px;
+  background: rgba(15, 20, 35, 0.98);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  box-shadow: 0 12px 40px rgba(0, 0, 0, 0.55);
+  padding: 6px;
+  backdrop-filter: blur(10px);
+}
+
+.tab-context-item {
+  width: 100%;
+  background: transparent;
+  border: none;
+  color: var(--text);
+  text-align: left;
+  padding: 10px 12px;
+  border-radius: 8px;
+  cursor: pointer;
+  font-size: var(--text-sm);
+}
+
+.tab-context-item:hover {
+  background: rgba(255, 255, 255, 0.06);
+}
+
+.tab-context-sep {
+  height: 1px;
+  background: var(--border);
+  margin: 6px 4px;
+  opacity: 0.8;
 }
 
 .tab {

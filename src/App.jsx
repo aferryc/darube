@@ -16,6 +16,7 @@ import { useTabs }         from './hooks/useTabs'
 import { useEditableGrid } from './hooks/useEditableGrid'
 import { useContextMenu }  from './hooks/useContextMenu'
 import { useExport }       from './hooks/useExport'
+import { applyBoxCut, getBoxSelectionText } from './utils/boxSelection'
 
 const params    = new URLSearchParams(window.location.search);
 const enginePort = params.get('enginePort') || '3000';
@@ -61,7 +62,14 @@ function App() {
   useEffect(() => {
     const close = () => { if (ctxMenu.contextMenu.visible) ctxMenu.hideMenu(); };
     window.addEventListener('click', close);
-    return () => window.removeEventListener('click', close);
+    const onKeyDown = (e) => {
+      if (e.key === 'Escape' && ctxMenu.contextMenu.visible) ctxMenu.hideMenu();
+    };
+    window.addEventListener('keydown', onKeyDown);
+    return () => {
+      window.removeEventListener('click', close);
+      window.removeEventListener('keydown', onKeyDown);
+    };
   }, [ctxMenu]);
 
   // ── Connection form helpers ───────────────────────────────────────────────
@@ -242,6 +250,194 @@ function App() {
           case 'export': exp.handleExportClick('table', tbl.name, tbl.name); break;
         }
       },
+      onTextAction: async (act, { el, hasSelection, readOnly }) => {
+        const target = el;
+        if (!target) return;
+        if (act === 'run_query') {
+          const role = target.dataset?.darubeEditorRole || null;
+          const isRedis = role === 'redis';
+          const connectionType = isRedis ? 'redis' : undefined;
+          const targetCId = tabs.activeTab.connectionId || activeId;
+          if (!targetCId) return;
+          const box = target.dataset?.boxSelection || null;
+          const parts = box ? String(box).split(',').map(n => parseInt(n, 10)) : null;
+          const boxSel = (parts && parts.length === 4 && parts.every(n => !Number.isNaN(n)))
+            ? { start: { row: parts[0], col: parts[1] }, end: { row: parts[2], col: parts[3] } }
+            : null;
+          const selected = hasSelection
+            ? (boxSel ? getBoxSelectionText(target.value || '', boxSel.start, boxSel.end) : (target.value || '').slice(target.selectionStart ?? 0, target.selectionEnd ?? 0))
+            : '';
+          const query = (hasSelection ? selected : (target.value || '')).trim();
+          if (!query) return;
+          await tabs.executeQuery(query, targetCId, connectionType);
+          return;
+        }
+        const box = target.dataset?.boxSelection || null;
+        const parseBox = () => {
+          if (!box) return null;
+          const parts = String(box).split(',').map(n => parseInt(n, 10));
+          if (parts.length !== 4 || parts.some(n => Number.isNaN(n))) return null;
+          return { start: { row: parts[0], col: parts[1] }, end: { row: parts[2], col: parts[3] } };
+        };
+        const boxSel = parseBox();
+        const getSelection = () => {
+          if (boxSel) return getBoxSelectionText(target.value || '', boxSel.start, boxSel.end);
+          const start = target.selectionStart ?? 0;
+          const end = target.selectionEnd ?? 0;
+          if (end <= start) return '';
+          return (target.value || '').slice(start, end);
+        };
+        const writeText = async (text) => {
+          if (navigator.clipboard?.writeText) return navigator.clipboard.writeText(text);
+          if (window.darube?.clipboard?.writeText) {
+            try {
+              window.darube.clipboard.writeText(String(text ?? ''));
+              return;
+            } catch { /* ignore */ }
+          }
+          const ta = document.createElement('textarea');
+          ta.value = String(text ?? '');
+          ta.style.position = 'fixed';
+          ta.style.left = '-9999px';
+          document.body.appendChild(ta);
+          ta.select();
+          document.execCommand('copy');
+          document.body.removeChild(ta);
+        };
+        const readText = async () => {
+          if (navigator.clipboard?.readText) return navigator.clipboard.readText();
+          if (window.darube?.clipboard?.readText) {
+            try {
+              return window.darube.clipboard.readText();
+            } catch { /* ignore */ }
+          }
+          return '';
+        };
+        const dispatchInput = () => target.dispatchEvent(new Event('input', { bubbles: true }));
+
+        if (act === 'select_all') {
+          target.focus();
+          target.setSelectionRange?.(0, (target.value || '').length);
+          return;
+        }
+        if (act === 'copy') {
+          if (!hasSelection) return;
+          await writeText(getSelection());
+          return;
+        }
+        if (act === 'cut') {
+          if (readOnly || !hasSelection) return;
+          await writeText(getSelection());
+          const v = target.value || '';
+          if (boxSel) {
+            target.value = applyBoxCut(v, boxSel.start, boxSel.end);
+            delete target.dataset.boxSelection;
+            dispatchInput();
+            return;
+          } else {
+            const start = target.selectionStart ?? 0;
+            const end = target.selectionEnd ?? 0;
+            target.value = v.slice(0, start) + v.slice(end);
+            target.setSelectionRange?.(start, start);
+            dispatchInput();
+            return;
+          }
+        }
+        if (act === 'paste') {
+          if (readOnly) return;
+          const clip = await readText();
+          const start = target.selectionStart ?? 0;
+          const end = target.selectionEnd ?? 0;
+          const v = target.value || '';
+          target.value = v.slice(0, start) + clip + v.slice(end);
+          const newPos = start + String(clip).length;
+          target.setSelectionRange?.(newPos, newPos);
+          dispatchInput();
+          return;
+        }
+      },
+      onResultsAction: async (act, { rowIndex, colIndex, selectedRows }) => {
+        const writeText = async (text) => {
+          if (navigator.clipboard?.writeText) return navigator.clipboard.writeText(String(text ?? ''));
+          if (window.darube?.clipboard?.writeText) {
+            try {
+              window.darube.clipboard.writeText(String(text ?? ''));
+              return;
+            } catch { /* ignore */ }
+          }
+          const ta = document.createElement('textarea');
+          ta.value = String(text ?? '');
+          ta.style.position = 'fixed';
+          ta.style.left = '-9999px';
+          document.body.appendChild(ta);
+          ta.select();
+          document.execCommand('copy');
+          document.body.removeChild(ta);
+        };
+
+        const cols = tabs.activeTab.results?.columns || [];
+        const working = grid.computeWorkingData?.() || [];
+        const row = (rowIndex != null ? working[rowIndex] : null) || null;
+
+        if (act === 'copy_cell') {
+          if (rowIndex == null || colIndex == null) return;
+          await writeText(String(row?.[colIndex] ?? ''));
+          return;
+        }
+        if (act === 'copy_row_tsv') {
+          if (!row || !cols.length) return;
+          const vals = cols.map((_, i) => String(row?.[i] ?? ''));
+          await writeText(vals.join('\t'));
+          return;
+        }
+        if (act === 'copy_row_json') {
+          if (!row || !cols.length) return;
+          const obj = {};
+          cols.forEach((c, i) => { obj[c] = row?.[i]; });
+          await writeText(JSON.stringify(obj, null, 2));
+          return;
+        }
+        if (act === 'copy_selected_tsv') {
+          const sel = (selectedRows?.length ? selectedRows : (tabs.activeTab.selectedRows || []));
+          if (!sel.length || !cols.length) return;
+          const lines = sel
+            .map(i => working[i])
+            .filter(Boolean)
+            .map(r => cols.map((_, ci) => String(r?.[ci] ?? '')).join('\t'));
+          await writeText(lines.join('\n'));
+          return;
+        }
+        if (act === 'export_selected') {
+          const sel = (selectedRows?.length ? selectedRows : (tabs.activeTab.selectedRows || []));
+          if (!sel.length) return;
+          const selectedData = sel.map(i => working[i]).filter(Boolean);
+          exp.setExportConfig({
+            targetType: 'data',
+            targetName: `Selected Rows (${sel.length})`,
+            queryTarget: tabs.activeTab.query,
+            format: 'csv',
+            headers: true,
+            path: '',
+            filename: 'selection_export',
+            dataPayload: selectedData,
+            columnsPayload: cols,
+          });
+        }
+      },
+    });
+  };
+
+  const handleResultsContextMenu = (e, targetIndex, cellInfo) => {
+    let selected = tabs.activeTab.selectedRows || [];
+    if (!selected.includes(targetIndex)) {
+      selected = [targetIndex];
+      tabs.updateActiveTab({ selectedRows: selected, lastSelectedIndex: targetIndex });
+    }
+    ctxMenu.handleResultsContextMenu(e, {
+      rowIndex: targetIndex,
+      colIndex: cellInfo?.colIndex ?? null,
+      colName: cellInfo?.colName ?? null,
+      selectedRows: selected,
     });
   };
 
@@ -307,6 +503,7 @@ function App() {
             loading={loading}
             setLoading={setLoading}
             connections={connections.connections}
+            onEditorContextMenu={ctxMenu.handleTextContextMenu}
           />
         ) : tabs.activeTab.type === 'query' ? (
           <Split
@@ -324,6 +521,7 @@ function App() {
                   value={tabs.activeTab.query}
                   onChange={code => tabs.updateActiveTab({ query: code })}
                   onKeyDown={(e) => tabs.handleKeyDown(e, tabs.activeTab.connectionId || activeId, 'redis')}
+                  onContextMenu={ctxMenu.handleTextContextMenu}
                   disabled={!activeId}
                 />
               ) : (
@@ -331,6 +529,7 @@ function App() {
                   value={tabs.activeTab.query}
                   onChange={code => tabs.updateActiveTab({ query: code })}
                   onKeyDown={(e) => tabs.handleKeyDown(e, tabs.activeTab.connectionId || activeId, activeConn?.db_type)}
+                  onContextMenu={ctxMenu.handleTextContextMenu}
                   disabled={!activeId}
                   placeholder={activeId ? 'Type SQL query here... (Cmd/Ctrl + Enter to run)' : 'Select or add a connection to start'}
                   apiUrl={apiUrl}
@@ -370,7 +569,7 @@ function App() {
                 handleCellBlur={grid.handleCellBlur}
                 handleRowAction={grid.handleRowAction}
                 handleRowClick={handleRowClick}
-                handleRowContextMenu={exp.handleRowContextMenu}
+                handleRowContextMenu={handleResultsContextMenu}
                 handleExportClick={exp.handleExportClick}
                 computeWorkingData={grid.computeWorkingData}
               />
@@ -401,7 +600,7 @@ function App() {
               handleCellBlur={grid.handleCellBlur}
               handleRowAction={grid.handleRowAction}
               handleRowClick={handleRowClick}
-              handleRowContextMenu={exp.handleRowContextMenu}
+              handleRowContextMenu={handleResultsContextMenu}
               handleExportClick={exp.handleExportClick}
               computeWorkingData={grid.computeWorkingData}
             />

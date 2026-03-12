@@ -52,10 +52,9 @@ export function useExport(apiUrl, activeId, activeTab, updateActiveTab, setLoadi
   };
 
   const handleSelectDirectory = async () => {
-    if (window.require) {
+    if (window.darube?.openDirectory) {
       try {
-        const { ipcRenderer } = window.require('electron');
-        const path = await ipcRenderer.invoke('dialog:openDirectory');
+        const path = await window.darube.openDirectory();
         if (path) setExportConfig(prev => ({ ...prev, path }));
       } catch (err) { console.error('IPC Error:', err); }
     } else {

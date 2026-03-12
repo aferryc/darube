@@ -5,7 +5,7 @@ import iconQuestion from '../assets/question.svg';
 import { ScriptAutocomplete } from './ScriptAutocomplete';
 import { ScriptHelpModal } from './ScriptHelpModal';
 
-export function ScriptPane({ apiUrl, activeTab, updateActiveTab, loading, setLoading, connections }) {
+export function ScriptPane({ apiUrl, activeTab, updateActiveTab, loading, setLoading, connections, onEditorContextMenu }) {
   const output = activeTab.results;
   const [showHelp, setShowHelp] = useState(false);
 
@@ -80,6 +80,7 @@ export function ScriptPane({ apiUrl, activeTab, updateActiveTab, loading, setLoa
           <ScriptAutocomplete
             value={activeTab.query}
             onChange={(code) => updateActiveTab({ query: code })}
+            onContextMenu={onEditorContextMenu}
             placeholder={'// Example:\n// const pg = db.conn(\"prod-postgres\")\n// const users = pg.query(\"SELECT id FROM users\")\n'}
             connections={connections}
           />
