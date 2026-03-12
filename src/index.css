@@ -1,5 +1,6 @@
 @import './styles/Variables.css';
 @import './styles/Reset.css';
+@import 'monaco-editor/min/vs/editor/editor.main.css';
 @import './styles/Layout.css';
 @import './styles/Sidebar.css';
 @import './styles/Tabs.css';

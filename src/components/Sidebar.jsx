@@ -84,7 +84,7 @@ function ConnectionItem({ c, activeId, expandedConns, expandedTree, metadata, ex
         </div>
       </div>
 
-      {expandedConns[c.id] && metadata[c.id] && c.status === 'connected' && (
+      {c.db_type !== 'redis' && expandedConns[c.id] && metadata[c.id] && c.status === 'connected' && (
         <div className="metadata-tree">
             <div className="metadata-group">
               <div className="metadata-title">Databases</div>

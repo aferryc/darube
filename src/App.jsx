@@ -250,45 +250,9 @@ function App() {
           case 'export': exp.handleExportClick('table', tbl.name, tbl.name); break;
         }
       },
-      onTextAction: async (act, { el, hasSelection, readOnly }) => {
-        const target = el;
-        if (!target) return;
-        if (act === 'run_query') {
-          const role = target.dataset?.darubeEditorRole || null;
-          const isRedis = role === 'redis';
-          const connectionType = isRedis ? 'redis' : undefined;
-          const targetCId = tabs.activeTab.connectionId || activeId;
-          if (!targetCId) return;
-          const box = target.dataset?.boxSelection || null;
-          const parts = box ? String(box).split(',').map(n => parseInt(n, 10)) : null;
-          const boxSel = (parts && parts.length === 4 && parts.every(n => !Number.isNaN(n)))
-            ? { start: { row: parts[0], col: parts[1] }, end: { row: parts[2], col: parts[3] } }
-            : null;
-          const selected = hasSelection
-            ? (boxSel ? getBoxSelectionText(target.value || '', boxSel.start, boxSel.end) : (target.value || '').slice(target.selectionStart ?? 0, target.selectionEnd ?? 0))
-            : '';
-          const query = (hasSelection ? selected : (target.value || '')).trim();
-          if (!query) return;
-          await tabs.executeQuery(query, targetCId, connectionType);
-          return;
-        }
-        const box = target.dataset?.boxSelection || null;
-        const parseBox = () => {
-          if (!box) return null;
-          const parts = String(box).split(',').map(n => parseInt(n, 10));
-          if (parts.length !== 4 || parts.some(n => Number.isNaN(n))) return null;
-          return { start: { row: parts[0], col: parts[1] }, end: { row: parts[2], col: parts[3] } };
-        };
-        const boxSel = parseBox();
-        const getSelection = () => {
-          if (boxSel) return getBoxSelectionText(target.value || '', boxSel.start, boxSel.end);
-          const start = target.selectionStart ?? 0;
-          const end = target.selectionEnd ?? 0;
-          if (end <= start) return '';
-          return (target.value || '').slice(start, end);
-        };
+      onTextAction: async (act, data) => {
         const writeText = async (text) => {
-          if (navigator.clipboard?.writeText) return navigator.clipboard.writeText(text);
+          if (navigator.clipboard?.writeText) return navigator.clipboard.writeText(String(text ?? ''));
           if (window.darube?.clipboard?.writeText) {
             try {
               window.darube.clipboard.writeText(String(text ?? ''));
@@ -312,6 +276,117 @@ function App() {
             } catch { /* ignore */ }
           }
           return '';
+        };
+
+        // Monaco editor path
+        if (data?.kind === 'monaco' && data?.editor) {
+          const editor = data.editor;
+          const model = editor.getModel?.();
+          if (!model) return;
+
+          const editorRole = data?.editorRole || null;
+          const isRedis = editorRole === 'redis';
+          const connectionType = isRedis ? 'redis' : undefined;
+          const targetCId = tabs.activeTab.connectionId || activeId;
+
+          const selections = editor.getSelections?.() || (editor.getSelection ? [editor.getSelection()] : []);
+          const isEmptySel = (s) => {
+            if (!s) return true;
+            if (typeof s.isEmpty === 'function') return s.isEmpty();
+            const sln = s.startLineNumber ?? s.selectionStartLineNumber;
+            const sc = s.startColumn ?? s.selectionStartColumn;
+            const eln = s.endLineNumber ?? s.positionLineNumber ?? s.selectionEndLineNumber;
+            const ec = s.endColumn ?? s.positionColumn ?? s.selectionEndColumn;
+            if (sln == null || sc == null || eln == null || ec == null) return true;
+            return (sln === eln) && (sc === ec);
+          };
+          const nonEmpty = (selections || []).filter(s => !isEmptySel(s));
+          const hasSelectionNow = nonEmpty.length > 0;
+          const getSelectionText = () => {
+            if (!hasSelectionNow) return '';
+            const parts = nonEmpty.map((s) => {
+              try { return model.getValueInRange(s); } catch { return ''; }
+            }).filter(Boolean);
+            return parts.join('\n');
+          };
+
+          if (act === 'run_query') {
+            if (!targetCId) return;
+            const selected = hasSelectionNow ? getSelectionText() : '';
+            const query = (hasSelectionNow ? selected : model.getValue()).trim();
+            if (!query) return;
+            await tabs.executeQuery(query, targetCId, connectionType);
+            return;
+          }
+
+          if (act === 'select_all') {
+            editor.focus?.();
+            try { editor.setSelection?.(model.getFullModelRange()); } catch { /* ignore */ }
+            return;
+          }
+          if (act === 'copy') {
+            if (!hasSelectionNow) return;
+            await writeText(getSelectionText());
+            return;
+          }
+          if (act === 'cut') {
+            if (data?.readOnly || !hasSelectionNow) return;
+            await writeText(getSelectionText());
+            const edits = nonEmpty.map(r => ({ range: r, text: '' }));
+            try { editor.executeEdits?.('darube', edits); } catch { /* ignore */ }
+            return;
+          }
+          if (act === 'paste') {
+            if (data?.readOnly) return;
+            const clip = await readText();
+            const baseSelections = (selections && selections.length) ? selections : (editor.getSelection ? [editor.getSelection()] : []);
+            const edits = (baseSelections || []).filter(Boolean).map(r => ({ range: r, text: String(clip ?? '') }));
+            try { editor.executeEdits?.('darube', edits); } catch { /* ignore */ }
+            return;
+          }
+          return;
+        }
+
+        // DOM textarea/input path (legacy + non-Monaco inputs)
+        const target = data?.el;
+        if (!target) return;
+        const hasSelection = !!data?.hasSelection;
+        const readOnly = !!data?.readOnly;
+
+        if (act === 'run_query') {
+          const role = target.dataset?.darubeEditorRole || null;
+          const isRedis = role === 'redis';
+          const connectionType = isRedis ? 'redis' : undefined;
+          const targetCId = tabs.activeTab.connectionId || activeId;
+          if (!targetCId) return;
+          const box = target.dataset?.boxSelection || null;
+          const parts = box ? String(box).split(',').map(n => parseInt(n, 10)) : null;
+          const boxSel = (parts && parts.length === 4 && parts.every(n => !Number.isNaN(n)))
+            ? { start: { row: parts[0], col: parts[1] }, end: { row: parts[2], col: parts[3] } }
+            : null;
+          const selected = hasSelection
+            ? (boxSel ? getBoxSelectionText(target.value || '', boxSel.start, boxSel.end) : (target.value || '').slice(target.selectionStart ?? 0, target.selectionEnd ?? 0))
+            : '';
+          const query = (hasSelection ? selected : (target.value || '')).trim();
+          if (!query) return;
+          await tabs.executeQuery(query, targetCId, connectionType);
+          return;
+        }
+
+        const box = target.dataset?.boxSelection || null;
+        const parseBox = () => {
+          if (!box) return null;
+          const parts = String(box).split(',').map(n => parseInt(n, 10));
+          if (parts.length !== 4 || parts.some(n => Number.isNaN(n))) return null;
+          return { start: { row: parts[0], col: parts[1] }, end: { row: parts[2], col: parts[3] } };
+        };
+        const boxSel = parseBox();
+        const getSelection = () => {
+          if (boxSel) return getBoxSelectionText(target.value || '', boxSel.start, boxSel.end);
+          const start = target.selectionStart ?? 0;
+          const end = target.selectionEnd ?? 0;
+          if (end <= start) return '';
+          return (target.value || '').slice(start, end);
         };
         const dispatchInput = () => target.dispatchEvent(new Event('input', { bubbles: true }));
 

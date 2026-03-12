@@ -40,6 +40,15 @@ export function useConnections(apiUrl) {
 
   const fetchMetadata = async (id) => {
     try {
+      const conn = connections.find(c => c.id === id);
+      // Redis connections don't have SQL metadata endpoints in the engine.
+      if (conn?.db_type === 'redis') {
+        setMetadata(prev => ({
+          ...prev,
+          [id]: { databases: [], schemas: [] },
+        }));
+        return;
+      }
       const [dbRes, entRes] = await Promise.all([
         fetch(`${apiUrl}/api/connections/${id}/metadata/databases`),
         fetch(`${apiUrl}/api/connections/${id}/metadata/schemas`),
@@ -63,7 +72,7 @@ export function useConnections(apiUrl) {
     let toFetch = false;
     let newExpanded = null;
     connections.forEach(c => {
-      if (c.status === 'connected' && !metadata[c.id] && expandedConns[c.id] !== true) {
+      if (c.db_type !== 'redis' && c.status === 'connected' && !metadata[c.id] && expandedConns[c.id] !== true) {
         if (!newExpanded) newExpanded = { ...expandedConns };
         newExpanded[c.id] = true;
         toFetch = true;

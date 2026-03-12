@@ -1,168 +1,153 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest'
-import { render, screen, fireEvent } from '@testing-library/react'
-import userEvent from '@testing-library/user-event'
+import { describe, it, expect, vi } from 'vitest'
+import { render, screen } from '@testing-library/react'
 import React from 'react'
-import { ScriptAutocomplete } from './ScriptAutocomplete'
 
-vi.mock('../utils/textareaCaret', () => ({
-  getTextareaCaretViewportPosition: () => ({ top: 10, left: 10, height: 18 }),
-}))
+import { registerScriptAutocomplete, ScriptAutocomplete } from './ScriptAutocomplete'
 
-function Stateful({ initialValue, connections }) {
-  const [value, setValue] = React.useState(initialValue)
-  return (
-    <div>
-      <div data-testid="val">{value}</div>
-      <ScriptAutocomplete
-        value={value}
-        onChange={setValue}
-        disabled={false}
-        placeholder="Script..."
-        connections={connections || []}
-      />
-    </div>
-  )
+function makeMonacoStub() {
+  const registrations = []
+
+  function Range(startLineNumber, startColumn, endLineNumber, endColumn) {
+    this.startLineNumber = startLineNumber
+    this.startColumn = startColumn
+    this.endLineNumber = endLineNumber
+    this.endColumn = endColumn
+  }
+
+  const monaco = {
+    Range,
+    languages: {
+      registerCompletionItemProvider: vi.fn((langId, provider) => {
+        registrations.push({ langId, provider })
+        return { dispose: vi.fn() }
+      }),
+      CompletionItemKind: {
+        Function: 1,
+        Method: 2,
+        Keyword: 3,
+      },
+      CompletionItemInsertTextRule: {
+        InsertAsSnippet: 4,
+      },
+    },
+  }
+
+  return { monaco, registrations }
 }
 
-describe('ScriptAutocomplete', () => {
-  beforeEach(() => {
-    vi.clearAllMocks()
+function makeModel(text) {
+  return {
+    getValue: () => text,
+    getOffsetAt: (pos) => pos.__offset,
+    getPositionAt: (offset) => ({ lineNumber: 1, column: offset + 1 }),
+  }
+}
+
+function provide(provider, text, cursor) {
+  const model = makeModel(text)
+  const position = { lineNumber: 1, column: cursor + 1, __offset: cursor }
+  return provider.provideCompletionItems(model, position)
+}
+
+describe('ScriptAutocomplete (Monaco completions)', () => {
+  it('registers a JS completion provider and updates editor options', () => {
+    const { monaco, registrations } = makeMonacoStub()
+    const editor = { updateOptions: vi.fn() }
+
+    registerScriptAutocomplete(monaco, editor, () => [])
+
+    expect(monaco.languages.registerCompletionItemProvider).toHaveBeenCalledWith('javascript', expect.any(Object))
+    expect(registrations[0]?.langId).toBe('javascript')
+    expect(editor.updateOptions).toHaveBeenCalled()
   })
 
-  it('suggests db.conn connection names inside db.conn(', async () => {
-    const user = userEvent.setup()
+  it('suggests connection names inside db.conn(\"...\") and inserts without extra quotes', () => {
+    const { monaco, registrations } = makeMonacoStub()
+    const editor = { updateOptions: vi.fn() }
+    registerScriptAutocomplete(monaco, editor, () => [
+      { id: 'c1', connection_name: 'prod-postgres', db_type: 'postgres' },
+      { id: 'c2', connection_name: 'cache', db_type: 'redis' },
+    ])
+
+    const provider = registrations[0].provider
+    const text = 'db.conn(\"pro'
+    const res = provide(provider, text, text.length)
+
+    const item = res.suggestions.find((s) => s.label === 'prod-postgres (postgres)')
+    expect(item).toBeTruthy()
+    expect(item.insertText).toBe('prod-postgres')
+  })
+
+  it('inserts quoted connection name when db.conn( has no opening quote', () => {
+    const { monaco, registrations } = makeMonacoStub()
+    const editor = { updateOptions: vi.fn() }
+    registerScriptAutocomplete(monaco, editor, () => [
+      { id: 'c1', connection_name: 'prod-postgres', db_type: 'postgres' },
+    ])
+
+    const provider = registrations[0].provider
+    const text = 'const pg = db.conn(pro'
+    const res = provide(provider, text, text.length)
+
+    const item = res.suggestions.find((s) => s.label === 'prod-postgres (postgres)')
+    expect(item).toBeTruthy()
+    expect(item.insertText).toBe('\"prod-postgres\"')
+  })
+
+  it('suggests utils.* when typing utils.n', () => {
+    const { monaco, registrations } = makeMonacoStub()
+    const editor = { updateOptions: vi.fn() }
+    registerScriptAutocomplete(monaco, editor, () => [])
+
+    const provider = registrations[0].provider
+    const text = 'utils.n'
+    const res = provide(provider, text, text.length)
+
+    expect(res.suggestions.some((s) => s.label === 'utils.now')).toBe(true)
+    expect(res.suggestions.some((s) => s.label === 'utils.nowUnixMs')).toBe(true)
+  })
+
+  it('suggests db.conn after typing db. and inserts as a snippet', () => {
+    const { monaco, registrations } = makeMonacoStub()
+    const editor = { updateOptions: vi.fn() }
+    registerScriptAutocomplete(monaco, editor, () => [])
+
+    const provider = registrations[0].provider
+    const text = 'db.c'
+    const res = provide(provider, text, text.length)
+    const item = res.suggestions.find((s) => s.label === 'db.conn')
+
+    expect(item).toBeTruthy()
+    expect(item.insertText).toBe('db.conn(\"$0\")')
+    expect(item.insertTextRules).toBe(monaco.languages.CompletionItemInsertTextRule.InsertAsSnippet)
+  })
+
+  it('suggests methods after var dot and inserts with prefix as a snippet', () => {
+    const { monaco, registrations } = makeMonacoStub()
+    const editor = { updateOptions: vi.fn() }
+    registerScriptAutocomplete(monaco, editor, () => [])
+
+    const provider = registrations[0].provider
+    const text = 'pg.q'
+    const res = provide(provider, text, text.length)
+    const item = res.suggestions.find((s) => s.label === '.query')
+
+    expect(item).toBeTruthy()
+    expect(item.insertText).toBe('pg.query(\"$0\")')
+    expect(item.insertTextRules).toBe(monaco.languages.CompletionItemInsertTextRule.InsertAsSnippet)
+  })
+
+  it('renders in test env using a textarea fallback', () => {
     render(
-      <Stateful
-        initialValue={'db.conn("'}
-        connections={[
-          { id: 'c1', connection_name: 'prod-postgres', db_type: 'postgres' },
-          { id: 'c2', connection_name: 'cache', db_type: 'redis' },
-        ]}
+      <ScriptAutocomplete
+        value={'const x = 1'}
+        onChange={() => {}}
+        placeholder="Script..."
+        connections={[]}
       />
     )
-
     const ta = screen.getByRole('textbox')
-    await user.type(ta, 'pro')
-    fireEvent.keyUp(ta, { key: 'o' })
-
-    // Dropdown should include prod-postgres suggestion.
-    expect(screen.getByText('prod-postgres (postgres)')).toBeInTheDocument()
-    await user.click(screen.getByText('prod-postgres (postgres)'))
-
-    // Inserts connection name (keeps quotes as user already typed a quote).
-    expect(screen.getByTestId('val').textContent).toContain('prod-postgres')
-  })
-
-  it('suggests utils.* when typing utils.', async () => {
-    const user = userEvent.setup()
-    render(
-      <Stateful initialValue={'utils.'} connections={[]} />
-    )
-
-    const ta = screen.getByRole('textbox')
-    // With "utils.n" fragment, we should see now/nowUnixMs.
-    await user.type(ta, 'n')
-    fireEvent.keyUp(ta, { key: 'n' })
-    expect(screen.getByText('utils.now')).toBeInTheDocument()
-    expect(screen.getByText('utils.nowUnixMs')).toBeInTheDocument()
-  })
-
-  it('suggests db.conn after typing db.', async () => {
-    const user = userEvent.setup()
-    render(
-      <Stateful initialValue={'db.'} connections={[]} />
-    )
-
-    const ta = screen.getByRole('textbox')
-    await user.type(ta, 'c')
-    expect(screen.getByText('db.conn')).toBeInTheDocument()
-  })
-
-  it('inserts quoted connection name when db.conn( has no opening quote', async () => {
-    const user = userEvent.setup()
-    render(
-      <Stateful
-        initialValue={'const pg = db.conn('}
-        connections={[
-          { id: 'c1', connection_name: 'prod-postgres', db_type: 'postgres' },
-        ]}
-      />
-    )
-
-    const ta = screen.getByRole('textbox')
-    await user.type(ta, 'pro')
-    fireEvent.keyUp(ta, { key: 'o' })
-    await user.click(screen.getByText('prod-postgres (postgres)'))
-
-    expect(screen.getByTestId('val').textContent).toContain('"prod-postgres"')
-  })
-
-  it('suggests methods after var dot and inserts with prefix', async () => {
-    const user = userEvent.setup()
-    render(
-      <Stateful initialValue={'pg.q'} connections={[]} />
-    )
-
-    const ta = screen.getByRole('textbox')
-    await user.type(ta, 'u')
-    fireEvent.keyUp(ta, { key: 'u' })
-    expect(screen.getByText('.query')).toBeInTheDocument()
-    await user.click(screen.getByText('.query'))
-
-    expect(screen.getByTestId('val').textContent).toContain('pg.query("')
-  })
-
-  it('closes dropdown on outside click', async () => {
-    const user = userEvent.setup()
-    render(<Stateful initialValue={'db.'} connections={[]} />)
-    const ta = screen.getByRole('textbox')
-    await user.type(ta, 'c')
-    fireEvent.keyUp(ta, { key: 'c' })
-    expect(screen.getByText('db.conn')).toBeInTheDocument()
-
-    fireEvent.mouseDown(document.body)
-    expect(screen.queryByText('db.conn')).not.toBeInTheDocument()
-  })
-
-  it('supports Tab to accept selected suggestion and Escape to close', async () => {
-    const user = userEvent.setup()
-    render(<Stateful initialValue={'db.'} connections={[]} />)
-    const ta = screen.getByRole('textbox')
-    await user.type(ta, 'c')
-    fireEvent.keyUp(ta, { key: 'c' })
-    expect(screen.getByText('db.conn')).toBeInTheDocument()
-
-    fireEvent.keyDown(ta, { key: 'Tab' })
-    expect(screen.getByTestId('val').textContent).toContain('db.conn("')
-
-    // Open again and close with Escape.
-    await user.type(ta, ' ')
-    fireEvent.keyUp(ta, { key: ' ' })
-    expect(screen.getByText('db.conn')).toBeInTheDocument()
-    fireEvent.keyDown(ta, { key: 'Escape' })
-    expect(screen.queryByText('db.conn')).not.toBeInTheDocument()
-  })
-
-  it('does not treat mousedown on dropdown as outside click', async () => {
-    const user = userEvent.setup()
-    render(<Stateful initialValue={'db.'} connections={[]} />)
-    const ta = screen.getByRole('textbox')
-    await user.type(ta, 'c')
-    fireEvent.keyUp(ta, { key: 'c' })
-    const item = screen.getByText('db.conn')
-    expect(item).toBeInTheDocument()
-
-    // This would close before our bugfix; now it should remain open on mousedown.
-    fireEvent.mouseDown(item)
-    expect(screen.getByText('db.conn')).toBeInTheDocument()
-  })
-
-  it('suggests JS keywords when not using dot context', async () => {
-    const user = userEvent.setup()
-    render(<Stateful initialValue={''} connections={[]} />)
-    const ta = screen.getByRole('textbox')
-    await user.type(ta, 'co')
-    fireEvent.keyUp(ta, { key: 'o' })
-    expect(screen.getByText('const')).toBeInTheDocument()
+    expect(ta).toHaveValue('const x = 1')
   })
 })
+
