@@ -76,6 +76,25 @@ func buildMux() *http.ServeMux {
 	mux.HandleFunc("POST /api/redis/{id}/export", api.RedisExportHandler)
 	mux.HandleFunc("PATCH /api/redis/{id}/folder", api.PatchRedisFolderHandler)
 
+	// HTTP Requests (Postman-like).
+	mux.HandleFunc("POST /api/http/test", api.TestHTTPHandler)
+	mux.HandleFunc("POST /api/http", api.SaveHTTPHandler)
+	mux.HandleFunc("PUT /api/http/{id}", api.SaveHTTPHandler)
+	mux.HandleFunc("GET /api/http/{id}", api.GetHTTPHandler)
+	mux.HandleFunc("DELETE /api/http/{id}", api.DeleteHTTPHandler)
+	mux.HandleFunc("PATCH /api/http/{id}/folder", api.PatchHTTPFolderHandler)
+	mux.HandleFunc("POST /api/http/{id}/request", api.HTTPRequestHandler)
+
+	// gRPC Requests (reflection + unary invoke).
+	mux.HandleFunc("POST /api/grpc/test", api.TestGRPCHandler)
+	mux.HandleFunc("POST /api/grpc", api.SaveGRPCHandler)
+	mux.HandleFunc("PUT /api/grpc/{id}", api.SaveGRPCHandler)
+	mux.HandleFunc("GET /api/grpc/{id}", api.GetGRPCHandler)
+	mux.HandleFunc("DELETE /api/grpc/{id}", api.DeleteGRPCHandler)
+	mux.HandleFunc("PATCH /api/grpc/{id}/folder", api.PatchGRPCFolderHandler)
+	mux.HandleFunc("POST /api/grpc/{id}/reflect", api.GRPCReflectHandler)
+	mux.HandleFunc("POST /api/grpc/{id}/invoke", api.GRPCInvokeHandler)
+
 	// Data Export.
 	mux.HandleFunc("POST /api/connections/{id}/export", api.ExportHandler)
 	mux.HandleFunc("POST /api/scripts/run", api.RunScriptHandler)

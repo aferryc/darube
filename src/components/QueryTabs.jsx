@@ -8,6 +8,7 @@ export function QueryTabs({
   activeConnType,
 }) {
   const isRedis = activeConnType === 'redis';
+  const isApi = activeConnType === 'http' || activeConnType === 'grpc';
 
   const [menu, setMenu] = useState(null); // { tabId, x, y }
 
@@ -130,7 +131,7 @@ export function QueryTabs({
         <div className="tab add-tab" onClick={addNewTab}>+</div>
       </div>
 
-      {activeId && (
+      {activeId && !isApi && (
         <div className="tabs-actions">
           {!isRedis && (
             <div

@@ -8,6 +8,8 @@ import { QueryTabs } from "./components/QueryTabs";
 import { ResultsPane } from "./components/ResultsPane";
 import { RedisPane } from "./components/RedisPane";
 import { ScriptPane } from "./components/ScriptPane";
+import { HttpRequestPane } from "./components/HttpRequestPane";
+import { GrpcRequestPane } from "./components/GrpcRequestPane";
 import { ConnectionModal } from "./components/ConnectionModal";
 import {
   ContextMenu,
@@ -42,6 +44,21 @@ const EMPTY_FORM = {
   client_cert_path: "",
   client_key_path: "",
   folder_id: "",
+
+  // API connections (HTTP / gRPC)
+  base_url: "",
+  address: "",
+  tls: false,
+  insecure_tls: false,
+  server_name: "",
+  default_headers: [],
+  auth_type: "none",
+  bearer_token: "",
+  auth_username: "",
+  auth_password: "",
+
+  // Redis extras
+  is_cluster: false,
 };
 
 function App() {
@@ -108,10 +125,72 @@ function App() {
     setShowModal(true);
   };
 
-  const handleEditConnection = (c, e) => {
+  const handleEditConnection = async (c, e) => {
     e.stopPropagation();
     setEditingId(c.id);
+
+    if (c.db_type === "http") {
+      try {
+        const res = await fetch(`${apiUrl}/api/http/${c.id}`);
+        const data = await res.json();
+        if (data.success && data.config) {
+          const cfg = data.config;
+          setFormData({
+            ...EMPTY_FORM,
+            connection_name: cfg.connection_name || c.connection_name || "",
+            db_type: "http",
+            base_url: cfg.base_url || "",
+            default_headers: cfg.default_headers || [],
+            folder_id: cfg.folder_id || c.folder_id || "",
+            auth_type: cfg.auth?.type || "none",
+            bearer_token: cfg.auth?.bearer_token || "",
+            auth_username: cfg.auth?.username || "",
+            auth_password: cfg.auth?.password || "",
+          });
+        } else {
+          throw new Error(data.error || "Failed to load HTTP config");
+        }
+      } catch (err) {
+        alert("Failed to load HTTP connection: " + err.message);
+        setFormData({ ...EMPTY_FORM, connection_name: c.connection_name || "", db_type: "http" });
+      }
+      setShowModal(true);
+      return;
+    }
+
+    if (c.db_type === "grpc") {
+      try {
+        const res = await fetch(`${apiUrl}/api/grpc/${c.id}`);
+        const data = await res.json();
+        if (data.success && data.config) {
+          const cfg = data.config;
+          setFormData({
+            ...EMPTY_FORM,
+            connection_name: cfg.connection_name || c.connection_name || "",
+            db_type: "grpc",
+            address: cfg.address || "",
+            tls: !!cfg.tls,
+            insecure_tls: !!cfg.insecure_tls,
+            server_name: cfg.server_name || "",
+            folder_id: cfg.folder_id || c.folder_id || "",
+            auth_type: cfg.auth?.type || "none",
+            bearer_token: cfg.auth?.bearer_token || "",
+            auth_username: cfg.auth?.username || "",
+            auth_password: cfg.auth?.password || "",
+          });
+        } else {
+          throw new Error(data.error || "Failed to load gRPC config");
+        }
+      } catch (err) {
+        alert("Failed to load gRPC connection: " + err.message);
+        setFormData({ ...EMPTY_FORM, connection_name: c.connection_name || "", db_type: "grpc" });
+      }
+      setShowModal(true);
+      return;
+    }
+
     setFormData({
+      ...EMPTY_FORM,
       connection_name: c.connection_name || "",
       db_type: c.db_type || "postgres",
       host: c.host || "",
@@ -132,6 +211,62 @@ function App() {
   const handleConnectNew = async (e) => {
     e.preventDefault();
     try {
+      const isHttp = formData.db_type === "http";
+      const isGrpc = formData.db_type === "grpc";
+
+      if (isHttp || isGrpc) {
+        const base = isHttp ? `${apiUrl}/api/http` : `${apiUrl}/api/grpc`;
+        const url = editingId ? `${base}/${editingId}` : base;
+        const method = editingId ? "PUT" : "POST";
+
+        const auth = {
+          type: formData.auth_type || "none",
+          bearer_token: formData.bearer_token || "",
+          username: formData.auth_username || "",
+          password: formData.auth_password || "",
+        };
+
+        const payload = isHttp
+          ? {
+              connection_name: formData.connection_name,
+              base_url: formData.base_url,
+              default_headers: formData.default_headers || [],
+              auth,
+              folder_id: formData.folder_id || "",
+            }
+          : {
+              connection_name: formData.connection_name,
+              address: formData.address,
+              tls: !!formData.tls,
+              insecure_tls: !!formData.insecure_tls,
+              server_name: formData.server_name || "",
+              auth,
+              folder_id: formData.folder_id || "",
+            };
+
+        const res = await fetch(url, {
+          method,
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(payload),
+        });
+
+        if (!res.ok) {
+          const text = await res.text();
+          throw new Error(text || res.statusText);
+        }
+
+        const data = await res.json();
+        if (data.success) {
+          setShowModal(false);
+          setEditingId(null);
+          connections.fetchConnections();
+          setActiveId(data.id || (editingId ? editingId : activeId));
+        } else {
+          alert(data.error);
+        }
+        return;
+      }
+
       const unsupportedNoSql = [
         "mongodb",
         "cassandra",
@@ -187,6 +322,54 @@ function App() {
   const handleTestConnection = async (e) => {
     e.preventDefault();
     try {
+      const isHttp = formData.db_type === "http";
+      const isGrpc = formData.db_type === "grpc";
+
+      if (isHttp || isGrpc) {
+        const auth = {
+          type: formData.auth_type || "none",
+          bearer_token: formData.bearer_token || "",
+          username: formData.auth_username || "",
+          password: formData.auth_password || "",
+        };
+        const payload = isHttp
+          ? {
+              connection_name: formData.connection_name,
+              base_url: formData.base_url,
+              default_headers: formData.default_headers || [],
+              auth,
+            }
+          : {
+              connection_name: formData.connection_name,
+              address: formData.address,
+              tls: !!formData.tls,
+              insecure_tls: !!formData.insecure_tls,
+              server_name: formData.server_name || "",
+              auth,
+            };
+
+        const url = isHttp
+          ? `${apiUrl}/api/http/test`
+          : `${apiUrl}/api/grpc/test`;
+
+        const res = await fetch(url, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(payload),
+        });
+
+        if (!res.ok) {
+          const text = await res.text();
+          throw new Error(text || res.statusText);
+        }
+
+        const data = await res.json();
+        data.success
+          ? alert("Success: " + data.message)
+          : alert("Connection Failed:\n\n" + data.error);
+        return;
+      }
+
       const unsupportedNoSql = [
         "mongodb",
         "cassandra",
@@ -793,14 +976,33 @@ function App() {
               onEditorContextMenu={ctxMenu.handleTextContextMenu}
             />
           ) : tabs.activeTab.type === "query" ? (
-            <Split
-              key={`${layoutDirection}-${activeConn?.db_type || "none"}`}
-              className={`split-container ${layoutDirection}`}
-              direction={layoutDirection}
-              sizes={[40, 60]}
-              minSize={100}
-              gutterSize={8}
-            >
+            activeConn?.db_type === "http" ? (
+              <HttpRequestPane
+                apiUrl={apiUrl}
+                connectionId={tabs.activeTab.connectionId || activeId}
+                activeTab={tabs.activeTab}
+                updateActiveTab={tabs.updateActiveTab}
+                loading={loading}
+                setLoading={setLoading}
+              />
+            ) : activeConn?.db_type === "grpc" ? (
+              <GrpcRequestPane
+                apiUrl={apiUrl}
+                connectionId={tabs.activeTab.connectionId || activeId}
+                activeTab={tabs.activeTab}
+                updateActiveTab={tabs.updateActiveTab}
+                loading={loading}
+                setLoading={setLoading}
+              />
+            ) : (
+              <Split
+                key={`${layoutDirection}-${activeConn?.db_type || "none"}`}
+                className={`split-container ${layoutDirection}`}
+                direction={layoutDirection}
+                sizes={[40, 60]}
+                minSize={100}
+                gutterSize={8}
+              >
               {/* Query editor pane */}
               <div className="pane query-section editor-pane">
                 {activeConn?.db_type === "redis" ? (
@@ -887,7 +1089,8 @@ function App() {
                   computeWorkingData={grid.computeWorkingData}
                 />
               )}
-            </Split>
+              </Split>
+            )
           ) : activeConn?.db_type === "redis" ? (
             <RedisPane
               activeTab={tabs.activeTab}
