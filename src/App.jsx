@@ -1,53 +1,80 @@
-import { useState, useEffect } from 'react'
-import Split from 'react-split'
+import { useState, useEffect } from "react";
+import Split from "react-split";
 
-import { SqlAutocomplete } from './components/SqlAutocomplete'
-import { RedisAutocomplete } from './components/RedisAutocomplete'
-import { Sidebar }          from './components/Sidebar'
-import { QueryTabs }        from './components/QueryTabs'
-import { ResultsPane }      from './components/ResultsPane'
-import { RedisPane }        from './components/RedisPane'
-import { ScriptPane }       from './components/ScriptPane'
-import { ConnectionModal }  from './components/ConnectionModal'
-import { ContextMenu, ExportModal, HelpModal, ConnectionSwitchModal } from './components/Modals'
+import { SqlAutocomplete } from "./components/SqlAutocomplete";
+import { RedisAutocomplete } from "./components/RedisAutocomplete";
+import { Sidebar } from "./components/Sidebar";
+import { QueryTabs } from "./components/QueryTabs";
+import { ResultsPane } from "./components/ResultsPane";
+import { RedisPane } from "./components/RedisPane";
+import { ScriptPane } from "./components/ScriptPane";
+import { ConnectionModal } from "./components/ConnectionModal";
+import {
+  ContextMenu,
+  ExportModal,
+  HelpModal,
+  ConnectionSwitchModal,
+} from "./components/Modals";
 
-import { useConnections }  from './hooks/useConnections'
-import { useTabs }         from './hooks/useTabs'
-import { useEditableGrid } from './hooks/useEditableGrid'
-import { useContextMenu }  from './hooks/useContextMenu'
-import { useExport }       from './hooks/useExport'
-import { applyBoxCut, getBoxSelectionText } from './utils/boxSelection'
+import { useConnections } from "./hooks/useConnections";
+import { useTabs } from "./hooks/useTabs";
+import { useEditableGrid } from "./hooks/useEditableGrid";
+import { useContextMenu } from "./hooks/useContextMenu";
+import { useExport } from "./hooks/useExport";
+import { applyBoxCut, getBoxSelectionText } from "./utils/boxSelection";
+import logoApp from "./assets/darube.png";
 
-const params    = new URLSearchParams(window.location.search);
-const enginePort = params.get('enginePort') || '3000';
-const apiUrl    = `http://localhost:${enginePort}`;
+const params = new URLSearchParams(window.location.search);
+const enginePort = params.get("enginePort") || "3000";
+const apiUrl = `http://localhost:${enginePort}`;
 
-const EMPTY_FORM = { 
-  connection_name: '', db_type: 'postgres', host: '', port: 5432, dbname: '',
-  file_path: '',
-  user: '', password: '', enable_ssl: false, 
-  ca_cert_path: '', client_cert_path: '', client_key_path: '', 
-  folder_id: '' 
+const EMPTY_FORM = {
+  connection_name: "",
+  db_type: "postgres",
+  host: "",
+  port: 5432,
+  dbname: "",
+  file_path: "",
+  user: "",
+  password: "",
+  enable_ssl: false,
+  ca_cert_path: "",
+  client_cert_path: "",
+  client_key_path: "",
+  folder_id: "",
 };
 
 function App() {
   // ── Shared UI state ──────────────────────────────────────────────────────
-  const [activeId, setActiveId]               = useState(null);
-  const [loading, setLoading]                 = useState(false);
-  const [showModal, setShowModal]             = useState(false);
-  const [showHelpModal, setShowHelpModal]     = useState(false);
-  const [switchPrompt, setSwitchPrompt]       = useState(null); // { targetId, forceExpand }
+  const [activeId, setActiveId] = useState(null);
+  const [loading, setLoading] = useState(false);
+  const [showModal, setShowModal] = useState(false);
+  const [showHelpModal, setShowHelpModal] = useState(false);
+  const [switchPrompt, setSwitchPrompt] = useState(null); // { targetId, forceExpand }
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
-  const [layoutDirection, setLayoutDirection] = useState('vertical');
-  const [formData, setFormData]               = useState(EMPTY_FORM);
-  const [editingId, setEditingId]             = useState(null);
+  const [layoutDirection, setLayoutDirection] = useState("vertical");
+  const [formData, setFormData] = useState(EMPTY_FORM);
+  const [editingId, setEditingId] = useState(null);
 
   // ── Hooks ─────────────────────────────────────────────────────────────────
   const connections = useConnections(apiUrl);
-  const tabs        = useTabs(apiUrl, activeId, setLoading);
-  const grid        = useEditableGrid(apiUrl, activeId, tabs.activeTab, tabs.updateActiveTab, tabs.executeQuery, setLoading);
-  const ctxMenu     = useContextMenu();
-  const exp         = useExport(apiUrl, activeId, tabs.activeTab, tabs.updateActiveTab, setLoading);
+  const tabs = useTabs(apiUrl, activeId, setLoading);
+  const grid = useEditableGrid(
+    apiUrl,
+    activeId,
+    tabs.activeTab,
+    tabs.updateActiveTab,
+    tabs.executeQuery,
+    setLoading,
+  );
+  const ctxMenu = useContextMenu();
+  const exp = useExport(
+    apiUrl,
+    activeId,
+    tabs.activeTab,
+    tabs.updateActiveTab,
+    setLoading,
+  );
 
   // ── Initial polling ───────────────────────────────────────────────────────
   useEffect(() => {
@@ -55,43 +82,49 @@ function App() {
     connections.fetchFolders();
     const interval = setInterval(connections.fetchConnections, 2000);
     return () => clearInterval(interval);
-  // eslint-disable-next-line react-hooks/exhaustive-deps
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   // ── Close context menu on global click ───────────────────────────────────
   useEffect(() => {
-    const close = () => { if (ctxMenu.contextMenu.visible) ctxMenu.hideMenu(); };
-    window.addEventListener('click', close);
-    const onKeyDown = (e) => {
-      if (e.key === 'Escape' && ctxMenu.contextMenu.visible) ctxMenu.hideMenu();
+    const close = () => {
+      if (ctxMenu.contextMenu.visible) ctxMenu.hideMenu();
     };
-    window.addEventListener('keydown', onKeyDown);
+    window.addEventListener("click", close);
+    const onKeyDown = (e) => {
+      if (e.key === "Escape" && ctxMenu.contextMenu.visible) ctxMenu.hideMenu();
+    };
+    window.addEventListener("keydown", onKeyDown);
     return () => {
-      window.removeEventListener('click', close);
-      window.removeEventListener('keydown', onKeyDown);
+      window.removeEventListener("click", close);
+      window.removeEventListener("keydown", onKeyDown);
     };
   }, [ctxMenu]);
 
   // ── Connection form helpers ───────────────────────────────────────────────
-  const openNewConnection = () => { setEditingId(null); setFormData(EMPTY_FORM); setShowModal(true); };
+  const openNewConnection = () => {
+    setEditingId(null);
+    setFormData(EMPTY_FORM);
+    setShowModal(true);
+  };
 
   const handleEditConnection = (c, e) => {
     e.stopPropagation();
     setEditingId(c.id);
-    setFormData({ 
-      connection_name: c.connection_name || '', 
-      db_type: c.db_type || 'postgres', 
-      host: c.host || '', 
-      port: (typeof c.port === 'number' ? c.port : 5432),
-      dbname: c.dbname || '', 
-      file_path: c.file_path || '',
-      user: c.user || '', 
-      password: '', 
-      enable_ssl: c.enable_ssl || false, 
-      ca_cert_path: c.ca_cert_path || '', 
-      client_cert_path: c.client_cert_path || '', 
-      client_key_path: c.client_key_path || '', 
-      folder_id: c.folder_id || '' 
+    setFormData({
+      connection_name: c.connection_name || "",
+      db_type: c.db_type || "postgres",
+      host: c.host || "",
+      port: typeof c.port === "number" ? c.port : 5432,
+      dbname: c.dbname || "",
+      file_path: c.file_path || "",
+      user: c.user || "",
+      password: "",
+      enable_ssl: c.enable_ssl || false,
+      ca_cert_path: c.ca_cert_path || "",
+      client_cert_path: c.client_cert_path || "",
+      client_key_path: c.client_key_path || "",
+      folder_id: c.folder_id || "",
     });
     setShowModal(true);
   };
@@ -99,28 +132,37 @@ function App() {
   const handleConnectNew = async (e) => {
     e.preventDefault();
     try {
-      const unsupportedNoSql = ['mongodb', 'cassandra', 'elasticsearch', 'opensearch'].includes(formData.db_type);
+      const unsupportedNoSql = [
+        "mongodb",
+        "cassandra",
+        "elasticsearch",
+        "opensearch",
+      ].includes(formData.db_type);
       if (unsupportedNoSql) {
-        alert(`${formData.db_type} connections are not implemented in the engine yet.`);
+        alert(
+          `${formData.db_type} connections are not implemented in the engine yet.`,
+        );
         return;
       }
 
-      const isFileDb = formData.db_type === 'sqlite';
+      const isFileDb = formData.db_type === "sqlite";
       const portInt = isFileDb ? 0 : parseInt(formData.port);
       if (!isFileDb && isNaN(portInt)) {
-        alert('Please enter a valid port number');
+        alert("Please enter a valid port number");
         return;
       }
 
-      const isRedis = formData.db_type === 'redis';
-      const base    = isRedis ? `${apiUrl}/api/redis` : `${apiUrl}/api/connections`;
-      const url     = editingId ? `${base}/${editingId}` : base;
-      const method  = editingId ? 'PUT' : 'POST';
-      
-      const res    = await fetch(url, { 
-        method, 
-        headers: { 'Content-Type': 'application/json' }, 
-        body: JSON.stringify({ ...formData, port: portInt }) 
+      const isRedis = formData.db_type === "redis";
+      const base = isRedis
+        ? `${apiUrl}/api/redis`
+        : `${apiUrl}/api/connections`;
+      const url = editingId ? `${base}/${editingId}` : base;
+      const method = editingId ? "PUT" : "POST";
+
+      const res = await fetch(url, {
+        method,
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ ...formData, port: portInt }),
       });
 
       if (!res.ok) {
@@ -137,42 +179,57 @@ function App() {
       } else {
         alert(data.error);
       }
-    } catch (err) { alert('Failed to save connection: ' + err.message); }
+    } catch (err) {
+      alert("Failed to save connection: " + err.message);
+    }
   };
 
   const handleTestConnection = async (e) => {
     e.preventDefault();
     try {
-      const unsupportedNoSql = ['mongodb', 'cassandra', 'elasticsearch', 'opensearch'].includes(formData.db_type);
+      const unsupportedNoSql = [
+        "mongodb",
+        "cassandra",
+        "elasticsearch",
+        "opensearch",
+      ].includes(formData.db_type);
       if (unsupportedNoSql) {
-        alert(`${formData.db_type} connections are not implemented in the engine yet.`);
+        alert(
+          `${formData.db_type} connections are not implemented in the engine yet.`,
+        );
         return;
       }
 
-      const isFileDb = formData.db_type === 'sqlite';
+      const isFileDb = formData.db_type === "sqlite";
       const portInt = isFileDb ? 0 : parseInt(formData.port);
       if (!isFileDb && isNaN(portInt)) {
-        alert('Please enter a valid port number');
+        alert("Please enter a valid port number");
         return;
       }
 
-      const isRedis = formData.db_type === 'redis';
-      const url     = isRedis ? `${apiUrl}/api/redis/test` : `${apiUrl}/api/connections/test`;
-      
-      const res  = await fetch(url, { 
-        method: 'POST', 
-        headers: { 'Content-Type': 'application/json' }, 
-        body: JSON.stringify({ ...formData, port: portInt }) 
+      const isRedis = formData.db_type === "redis";
+      const url = isRedis
+        ? `${apiUrl}/api/redis/test`
+        : `${apiUrl}/api/connections/test`;
+
+      const res = await fetch(url, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ ...formData, port: portInt }),
       });
-      
+
       if (!res.ok) {
         const text = await res.text();
         throw new Error(text || res.statusText);
       }
 
       const data = await res.json();
-      data.success ? alert('Success: ' + data.message) : alert('Connection Failed:\n\n' + data.error);
-    } catch (err) { alert('Error reaching engine: ' + err.message); }
+      data.success
+        ? alert("Success: " + data.message)
+        : alert("Connection Failed:\n\n" + data.error);
+    } catch (err) {
+      alert("Error reaching engine: " + err.message);
+    }
   };
 
   const handleDeleteConnection = (id, e) => {
@@ -180,8 +237,12 @@ function App() {
     connections.handleDeleteConnection(id, activeId, setActiveId);
   };
 
-  const handleDisconnect = (id) => connections.handleDisconnect(id, activeId, setActiveId);
-  const handleReconnect  = (id) => { connections.handleReconnect(id); setActiveId(id); };
+  const handleDisconnect = (id) =>
+    connections.handleDisconnect(id, activeId, setActiveId);
+  const handleReconnect = (id) => {
+    connections.handleReconnect(id);
+    setActiveId(id);
+  };
 
   const handleConnectionClick = async (id, forceExpand) => {
     const firstTabId = tabs.getFirstTabIdForConnection(id);
@@ -206,142 +267,226 @@ function App() {
     ctxMenu.handleMenuAction(action, {
       onConnAction: async (act, conn) => {
         switch (act) {
-          case 'duplicate': setEditingId(null); setFormData({ ...conn, connection_name: conn.connection_name + ' (Copy)', password: '' }); setShowModal(true); break;
-          case 'delete':    handleDeleteConnection(conn.id, { stopPropagation: () => {} }); break;
-          case 'refresh':   connections.fetchConnections(); break;
-          case 'connect':   handleReconnect(conn.id); break;
-          case 'disconnect':handleDisconnect(conn.id); break;
-          case 'rename':    handleEditConnection(conn, { stopPropagation: () => {} }); break;
+          case "duplicate":
+            setEditingId(null);
+            setFormData({
+              ...conn,
+              connection_name: conn.connection_name + " (Copy)",
+              password: "",
+            });
+            setShowModal(true);
+            break;
+          case "delete":
+            handleDeleteConnection(conn.id, { stopPropagation: () => {} });
+            break;
+          case "refresh":
+            connections.fetchConnections();
+            break;
+          case "connect":
+            handleReconnect(conn.id);
+            break;
+          case "disconnect":
+            handleDisconnect(conn.id);
+            break;
+          case "rename":
+            handleEditConnection(conn, { stopPropagation: () => {} });
+            break;
         }
       },
       onTableAction: async (act, { tbl, schemaName, cId }) => {
         switch (act) {
-          case 'view_data': {
+          case "view_data": {
             const q = `SELECT * FROM ${schemaName}.${tbl.name} LIMIT 100;`;
             setActiveId(cId);
             tabs.updateActiveTab({ query: q, connectionId: cId });
             await tabs.executeQuery(q, cId);
             break;
           }
-          case 'view_dml': {
-            const res = await fetch(`${apiUrl}/api/connections/${cId}/metadata/schemas/${schemaName}/tables/${tbl.name}/dml`);
-            const d   = await res.json();
+          case "view_dml": {
+            const res = await fetch(
+              `${apiUrl}/api/connections/${cId}/metadata/schemas/${schemaName}/tables/${tbl.name}/dml`,
+            );
+            const d = await res.json();
             if (d.success) {
-              tabs.addSpecialTab(`DML: ${tbl.name}`, 'dml', { results: { success: true, dml: d.dml } }, cId);
+              tabs.addSpecialTab(
+                `DML: ${tbl.name}`,
+                "dml",
+                { results: { success: true, dml: d.dml } },
+                cId,
+              );
             } else {
-              alert('Error fetching DML: ' + d.error);
+              alert("Error fetching DML: " + d.error);
             }
             break;
           }
-          case 'view_indexes': {
-            const res = await fetch(`${apiUrl}/api/connections/${cId}/metadata/schemas/${schemaName}/tables/${tbl.name}/indexes`);
-            const d   = await res.json();
-            if (!d.success) { alert('Error: ' + d.error); break; }
-            if (!d.indexes?.length) { alert('No indexes found.'); break; }
-            tabs.addSpecialTab(`Indexes: ${tbl.name}`, 'indexes', { 
-              results: { 
-                success: true, 
-                columns: ['Name', 'Columns', 'Unique', 'Primary'], 
-                rows: d.indexes.map(i => [i.name, i.columns.join(', '), i.unique ? 'Yes' : 'No', i.primary ? 'Yes' : 'No']) 
-              } 
-            }, cId);
+          case "view_indexes": {
+            const res = await fetch(
+              `${apiUrl}/api/connections/${cId}/metadata/schemas/${schemaName}/tables/${tbl.name}/indexes`,
+            );
+            const d = await res.json();
+            if (!d.success) {
+              alert("Error: " + d.error);
+              break;
+            }
+            if (!d.indexes?.length) {
+              alert("No indexes found.");
+              break;
+            }
+            tabs.addSpecialTab(
+              `Indexes: ${tbl.name}`,
+              "indexes",
+              {
+                results: {
+                  success: true,
+                  columns: ["Name", "Columns", "Unique", "Primary"],
+                  rows: d.indexes.map((i) => [
+                    i.name,
+                    i.columns.join(", "),
+                    i.unique ? "Yes" : "No",
+                    i.primary ? "Yes" : "No",
+                  ]),
+                },
+              },
+              cId,
+            );
             break;
           }
-          case 'export': exp.handleExportClick('table', tbl.name, tbl.name); break;
+          case "export":
+            exp.handleExportClick("table", tbl.name, tbl.name);
+            break;
         }
       },
       onTextAction: async (act, data) => {
         const writeText = async (text) => {
-          if (navigator.clipboard?.writeText) return navigator.clipboard.writeText(String(text ?? ''));
+          if (navigator.clipboard?.writeText)
+            return navigator.clipboard.writeText(String(text ?? ""));
           if (window.darube?.clipboard?.writeText) {
             try {
-              window.darube.clipboard.writeText(String(text ?? ''));
+              window.darube.clipboard.writeText(String(text ?? ""));
               return;
-            } catch { /* ignore */ }
+            } catch {
+              /* ignore */
+            }
           }
-          const ta = document.createElement('textarea');
-          ta.value = String(text ?? '');
-          ta.style.position = 'fixed';
-          ta.style.left = '-9999px';
+          const ta = document.createElement("textarea");
+          ta.value = String(text ?? "");
+          ta.style.position = "fixed";
+          ta.style.left = "-9999px";
           document.body.appendChild(ta);
           ta.select();
-          document.execCommand('copy');
+          document.execCommand("copy");
           document.body.removeChild(ta);
         };
         const readText = async () => {
-          if (navigator.clipboard?.readText) return navigator.clipboard.readText();
+          if (navigator.clipboard?.readText)
+            return navigator.clipboard.readText();
           if (window.darube?.clipboard?.readText) {
             try {
               return window.darube.clipboard.readText();
-            } catch { /* ignore */ }
+            } catch {
+              /* ignore */
+            }
           }
-          return '';
+          return "";
         };
 
         // Monaco editor path
-        if (data?.kind === 'monaco' && data?.editor) {
+        if (data?.kind === "monaco" && data?.editor) {
           const editor = data.editor;
           const model = editor.getModel?.();
           if (!model) return;
 
           const editorRole = data?.editorRole || null;
-          const isRedis = editorRole === 'redis';
-          const connectionType = isRedis ? 'redis' : undefined;
+          const isRedis = editorRole === "redis";
+          const connectionType = isRedis ? "redis" : undefined;
           const targetCId = tabs.activeTab.connectionId || activeId;
 
-          const selections = editor.getSelections?.() || (editor.getSelection ? [editor.getSelection()] : []);
+          const selections =
+            editor.getSelections?.() ||
+            (editor.getSelection ? [editor.getSelection()] : []);
           const isEmptySel = (s) => {
             if (!s) return true;
-            if (typeof s.isEmpty === 'function') return s.isEmpty();
+            if (typeof s.isEmpty === "function") return s.isEmpty();
             const sln = s.startLineNumber ?? s.selectionStartLineNumber;
             const sc = s.startColumn ?? s.selectionStartColumn;
-            const eln = s.endLineNumber ?? s.positionLineNumber ?? s.selectionEndLineNumber;
+            const eln =
+              s.endLineNumber ??
+              s.positionLineNumber ??
+              s.selectionEndLineNumber;
             const ec = s.endColumn ?? s.positionColumn ?? s.selectionEndColumn;
-            if (sln == null || sc == null || eln == null || ec == null) return true;
-            return (sln === eln) && (sc === ec);
+            if (sln == null || sc == null || eln == null || ec == null)
+              return true;
+            return sln === eln && sc === ec;
           };
-          const nonEmpty = (selections || []).filter(s => !isEmptySel(s));
+          const nonEmpty = (selections || []).filter((s) => !isEmptySel(s));
           const hasSelectionNow = nonEmpty.length > 0;
           const getSelectionText = () => {
-            if (!hasSelectionNow) return '';
-            const parts = nonEmpty.map((s) => {
-              try { return model.getValueInRange(s); } catch { return ''; }
-            }).filter(Boolean);
-            return parts.join('\n');
+            if (!hasSelectionNow) return "";
+            const parts = nonEmpty
+              .map((s) => {
+                try {
+                  return model.getValueInRange(s);
+                } catch {
+                  return "";
+                }
+              })
+              .filter(Boolean);
+            return parts.join("\n");
           };
 
-          if (act === 'run_query') {
+          if (act === "run_query") {
             if (!targetCId) return;
-            const selected = hasSelectionNow ? getSelectionText() : '';
-            const query = (hasSelectionNow ? selected : model.getValue()).trim();
+            const selected = hasSelectionNow ? getSelectionText() : "";
+            const query = (
+              hasSelectionNow ? selected : model.getValue()
+            ).trim();
             if (!query) return;
             await tabs.executeQuery(query, targetCId, connectionType);
             return;
           }
 
-          if (act === 'select_all') {
+          if (act === "select_all") {
             editor.focus?.();
-            try { editor.setSelection?.(model.getFullModelRange()); } catch { /* ignore */ }
+            try {
+              editor.setSelection?.(model.getFullModelRange());
+            } catch {
+              /* ignore */
+            }
             return;
           }
-          if (act === 'copy') {
+          if (act === "copy") {
             if (!hasSelectionNow) return;
             await writeText(getSelectionText());
             return;
           }
-          if (act === 'cut') {
+          if (act === "cut") {
             if (data?.readOnly || !hasSelectionNow) return;
             await writeText(getSelectionText());
-            const edits = nonEmpty.map(r => ({ range: r, text: '' }));
-            try { editor.executeEdits?.('darube', edits); } catch { /* ignore */ }
+            const edits = nonEmpty.map((r) => ({ range: r, text: "" }));
+            try {
+              editor.executeEdits?.("darube", edits);
+            } catch {
+              /* ignore */
+            }
             return;
           }
-          if (act === 'paste') {
+          if (act === "paste") {
             if (data?.readOnly) return;
             const clip = await readText();
-            const baseSelections = (selections && selections.length) ? selections : (editor.getSelection ? [editor.getSelection()] : []);
-            const edits = (baseSelections || []).filter(Boolean).map(r => ({ range: r, text: String(clip ?? '') }));
-            try { editor.executeEdits?.('darube', edits); } catch { /* ignore */ }
+            const baseSelections =
+              selections && selections.length
+                ? selections
+                : editor.getSelection
+                  ? [editor.getSelection()]
+                  : [];
+            const edits = (baseSelections || [])
+              .filter(Boolean)
+              .map((r) => ({ range: r, text: String(clip ?? "") }));
+            try {
+              editor.executeEdits?.("darube", edits);
+            } catch {
+              /* ignore */
+            }
             return;
           }
           return;
@@ -353,21 +498,38 @@ function App() {
         const hasSelection = !!data?.hasSelection;
         const readOnly = !!data?.readOnly;
 
-        if (act === 'run_query') {
+        if (act === "run_query") {
           const role = target.dataset?.darubeEditorRole || null;
-          const isRedis = role === 'redis';
-          const connectionType = isRedis ? 'redis' : undefined;
+          const isRedis = role === "redis";
+          const connectionType = isRedis ? "redis" : undefined;
           const targetCId = tabs.activeTab.connectionId || activeId;
           if (!targetCId) return;
           const box = target.dataset?.boxSelection || null;
-          const parts = box ? String(box).split(',').map(n => parseInt(n, 10)) : null;
-          const boxSel = (parts && parts.length === 4 && parts.every(n => !Number.isNaN(n)))
-            ? { start: { row: parts[0], col: parts[1] }, end: { row: parts[2], col: parts[3] } }
+          const parts = box
+            ? String(box)
+                .split(",")
+                .map((n) => parseInt(n, 10))
             : null;
+          const boxSel =
+            parts && parts.length === 4 && parts.every((n) => !Number.isNaN(n))
+              ? {
+                  start: { row: parts[0], col: parts[1] },
+                  end: { row: parts[2], col: parts[3] },
+                }
+              : null;
           const selected = hasSelection
-            ? (boxSel ? getBoxSelectionText(target.value || '', boxSel.start, boxSel.end) : (target.value || '').slice(target.selectionStart ?? 0, target.selectionEnd ?? 0))
-            : '';
-          const query = (hasSelection ? selected : (target.value || '')).trim();
+            ? boxSel
+              ? getBoxSelectionText(
+                  target.value || "",
+                  boxSel.start,
+                  boxSel.end,
+                )
+              : (target.value || "").slice(
+                  target.selectionStart ?? 0,
+                  target.selectionEnd ?? 0,
+                )
+            : "";
+          const query = (hasSelection ? selected : target.value || "").trim();
           if (!query) return;
           await tabs.executeQuery(query, targetCId, connectionType);
           return;
@@ -376,34 +538,46 @@ function App() {
         const box = target.dataset?.boxSelection || null;
         const parseBox = () => {
           if (!box) return null;
-          const parts = String(box).split(',').map(n => parseInt(n, 10));
-          if (parts.length !== 4 || parts.some(n => Number.isNaN(n))) return null;
-          return { start: { row: parts[0], col: parts[1] }, end: { row: parts[2], col: parts[3] } };
+          const parts = String(box)
+            .split(",")
+            .map((n) => parseInt(n, 10));
+          if (parts.length !== 4 || parts.some((n) => Number.isNaN(n)))
+            return null;
+          return {
+            start: { row: parts[0], col: parts[1] },
+            end: { row: parts[2], col: parts[3] },
+          };
         };
         const boxSel = parseBox();
         const getSelection = () => {
-          if (boxSel) return getBoxSelectionText(target.value || '', boxSel.start, boxSel.end);
+          if (boxSel)
+            return getBoxSelectionText(
+              target.value || "",
+              boxSel.start,
+              boxSel.end,
+            );
           const start = target.selectionStart ?? 0;
           const end = target.selectionEnd ?? 0;
-          if (end <= start) return '';
-          return (target.value || '').slice(start, end);
+          if (end <= start) return "";
+          return (target.value || "").slice(start, end);
         };
-        const dispatchInput = () => target.dispatchEvent(new Event('input', { bubbles: true }));
+        const dispatchInput = () =>
+          target.dispatchEvent(new Event("input", { bubbles: true }));
 
-        if (act === 'select_all') {
+        if (act === "select_all") {
           target.focus();
-          target.setSelectionRange?.(0, (target.value || '').length);
+          target.setSelectionRange?.(0, (target.value || "").length);
           return;
         }
-        if (act === 'copy') {
+        if (act === "copy") {
           if (!hasSelection) return;
           await writeText(getSelection());
           return;
         }
-        if (act === 'cut') {
+        if (act === "cut") {
           if (readOnly || !hasSelection) return;
           await writeText(getSelection());
-          const v = target.value || '';
+          const v = target.value || "";
           if (boxSel) {
             target.value = applyBoxCut(v, boxSel.start, boxSel.end);
             delete target.dataset.boxSelection;
@@ -418,12 +592,12 @@ function App() {
             return;
           }
         }
-        if (act === 'paste') {
+        if (act === "paste") {
           if (readOnly) return;
           const clip = await readText();
           const start = target.selectionStart ?? 0;
           const end = target.selectionEnd ?? 0;
-          const v = target.value || '';
+          const v = target.value || "";
           target.value = v.slice(0, start) + clip + v.slice(end);
           const newPos = start + String(clip).length;
           target.setSelectionRange?.(newPos, newPos);
@@ -433,20 +607,23 @@ function App() {
       },
       onResultsAction: async (act, { rowIndex, colIndex, selectedRows }) => {
         const writeText = async (text) => {
-          if (navigator.clipboard?.writeText) return navigator.clipboard.writeText(String(text ?? ''));
+          if (navigator.clipboard?.writeText)
+            return navigator.clipboard.writeText(String(text ?? ""));
           if (window.darube?.clipboard?.writeText) {
             try {
-              window.darube.clipboard.writeText(String(text ?? ''));
+              window.darube.clipboard.writeText(String(text ?? ""));
               return;
-            } catch { /* ignore */ }
+            } catch {
+              /* ignore */
+            }
           }
-          const ta = document.createElement('textarea');
-          ta.value = String(text ?? '');
-          ta.style.position = 'fixed';
-          ta.style.left = '-9999px';
+          const ta = document.createElement("textarea");
+          ta.value = String(text ?? "");
+          ta.style.position = "fixed";
+          ta.style.left = "-9999px";
           document.body.appendChild(ta);
           ta.select();
-          document.execCommand('copy');
+          document.execCommand("copy");
           document.body.removeChild(ta);
         };
 
@@ -454,46 +631,52 @@ function App() {
         const working = grid.computeWorkingData?.() || [];
         const row = (rowIndex != null ? working[rowIndex] : null) || null;
 
-        if (act === 'copy_cell') {
+        if (act === "copy_cell") {
           if (rowIndex == null || colIndex == null) return;
-          await writeText(String(row?.[colIndex] ?? ''));
+          await writeText(String(row?.[colIndex] ?? ""));
           return;
         }
-        if (act === 'copy_row_tsv') {
+        if (act === "copy_row_tsv") {
           if (!row || !cols.length) return;
-          const vals = cols.map((_, i) => String(row?.[i] ?? ''));
-          await writeText(vals.join('\t'));
+          const vals = cols.map((_, i) => String(row?.[i] ?? ""));
+          await writeText(vals.join("\t"));
           return;
         }
-        if (act === 'copy_row_json') {
+        if (act === "copy_row_json") {
           if (!row || !cols.length) return;
           const obj = {};
-          cols.forEach((c, i) => { obj[c] = row?.[i]; });
+          cols.forEach((c, i) => {
+            obj[c] = row?.[i];
+          });
           await writeText(JSON.stringify(obj, null, 2));
           return;
         }
-        if (act === 'copy_selected_tsv') {
-          const sel = (selectedRows?.length ? selectedRows : (tabs.activeTab.selectedRows || []));
+        if (act === "copy_selected_tsv") {
+          const sel = selectedRows?.length
+            ? selectedRows
+            : tabs.activeTab.selectedRows || [];
           if (!sel.length || !cols.length) return;
           const lines = sel
-            .map(i => working[i])
+            .map((i) => working[i])
             .filter(Boolean)
-            .map(r => cols.map((_, ci) => String(r?.[ci] ?? '')).join('\t'));
-          await writeText(lines.join('\n'));
+            .map((r) => cols.map((_, ci) => String(r?.[ci] ?? "")).join("\t"));
+          await writeText(lines.join("\n"));
           return;
         }
-        if (act === 'export_selected') {
-          const sel = (selectedRows?.length ? selectedRows : (tabs.activeTab.selectedRows || []));
+        if (act === "export_selected") {
+          const sel = selectedRows?.length
+            ? selectedRows
+            : tabs.activeTab.selectedRows || [];
           if (!sel.length) return;
-          const selectedData = sel.map(i => working[i]).filter(Boolean);
+          const selectedData = sel.map((i) => working[i]).filter(Boolean);
           exp.setExportConfig({
-            targetType: 'data',
+            targetType: "data",
             targetName: `Selected Rows (${sel.length})`,
             queryTarget: tabs.activeTab.query,
-            format: 'csv',
+            format: "csv",
             headers: true,
-            path: '',
-            filename: 'selection_export',
+            path: "",
+            filename: "selection_export",
             dataPayload: selectedData,
             columnsPayload: cols,
           });
@@ -506,7 +689,10 @@ function App() {
     let selected = tabs.activeTab.selectedRows || [];
     if (!selected.includes(targetIndex)) {
       selected = [targetIndex];
-      tabs.updateActiveTab({ selectedRows: selected, lastSelectedIndex: targetIndex });
+      tabs.updateActiveTab({
+        selectedRows: selected,
+        lastSelectedIndex: targetIndex,
+      });
     }
     ctxMenu.handleResultsContextMenu(e, {
       rowIndex: targetIndex,
@@ -520,11 +706,18 @@ function App() {
   const handleRowClick = (e, targetIndex) => {
     let sel = [...(tabs.activeTab.selectedRows || [])];
     if (e.shiftKey && tabs.activeTab.lastSelectedIndex !== null) {
-      const [lo, hi] = [Math.min(tabs.activeTab.lastSelectedIndex, targetIndex), Math.max(tabs.activeTab.lastSelectedIndex, targetIndex)];
+      const [lo, hi] = [
+        Math.min(tabs.activeTab.lastSelectedIndex, targetIndex),
+        Math.max(tabs.activeTab.lastSelectedIndex, targetIndex),
+      ];
       if (!e.metaKey && !e.ctrlKey) sel = [];
-      for (let i = lo; i <= hi; i++) { if (!sel.includes(i)) sel.push(i); }
+      for (let i = lo; i <= hi; i++) {
+        if (!sel.includes(i)) sel.push(i);
+      }
     } else if (e.metaKey || e.ctrlKey) {
-      sel = sel.includes(targetIndex) ? sel.filter(i => i !== targetIndex) : [...sel, targetIndex];
+      sel = sel.includes(targetIndex)
+        ? sel.filter((i) => i !== targetIndex)
+        : [...sel, targetIndex];
     } else {
       sel = [targetIndex];
     }
@@ -532,132 +725,178 @@ function App() {
   };
 
   // ── Connection info for status bar ───────────────────────────────────────
-  const activeConn = connections.connections.find(c => c.id === activeId);
+  const activeConn = connections.connections.find((c) => c.id === activeId);
 
   // ── Render ────────────────────────────────────────────────────────────────
   return (
     <div className="app-container">
-      <Sidebar
-        {...connections}
-        activeId={activeId}
-        sidebarCollapsed={sidebarCollapsed}
-        setSidebarCollapsed={setSidebarCollapsed}
-        handleConnectionClick={handleConnectionClick}
-        handleEditConnection={handleEditConnection}
-        handleDeleteConnection={handleDeleteConnection}
-        handleDisconnect={handleDisconnect}
-        handleReconnect={handleReconnect}
-        onNewConnection={openNewConnection}
-        onNewScript={() => {
-          const n = tabs.tabs.filter(t => t.type === 'script').length + 1;
-          tabs.addSpecialTab(`Script ${n}`, 'script', { query: '', results: null }, null);
-        }}
-        onShowHelp={() => setShowHelpModal(true)}
-        handleConnectionContextMenu={ctxMenu.handleConnectionContextMenu}
-        handleTableContextMenu={ctxMenu.handleTableContextMenu}
-        toggleTree={connections.toggleTree}
-      />
+      <div className="app-topbar">
+        <img className="app-topbar-icon" src={logoApp} alt="Darube" />
+        <div className="app-topbar-title">Darube</div>
+      </div>
 
-      <button className="swap-layout-btn" onClick={() => setLayoutDirection(d => d === 'horizontal' ? 'vertical' : 'horizontal')} title="Swap Layout">
-        ⇋ {layoutDirection === 'horizontal' ? 'Horizontal' : 'Vertical'}
-      </button>
-
-      <div className="main-area">
-        <QueryTabs
-          {...tabs}
+      <div className="app-body">
+        <Sidebar
+          {...connections}
           activeId={activeId}
-          loading={loading}
-          activeConnType={activeConn?.db_type}
+          sidebarCollapsed={sidebarCollapsed}
+          setSidebarCollapsed={setSidebarCollapsed}
+          handleConnectionClick={handleConnectionClick}
+          handleEditConnection={handleEditConnection}
+          handleDeleteConnection={handleDeleteConnection}
+          handleDisconnect={handleDisconnect}
+          handleReconnect={handleReconnect}
+          onNewConnection={openNewConnection}
+          onNewScript={() => {
+            const n = tabs.tabs.filter((t) => t.type === "script").length + 1;
+            tabs.addSpecialTab(
+              `Script ${n}`,
+              "script",
+              { query: "", results: null },
+              null,
+            );
+          }}
+          onShowHelp={() => setShowHelpModal(true)}
+          handleConnectionContextMenu={ctxMenu.handleConnectionContextMenu}
+          handleTableContextMenu={ctxMenu.handleTableContextMenu}
+          toggleTree={connections.toggleTree}
         />
 
-        {tabs.activeTab.type === 'script' ? (
-          <ScriptPane
-            apiUrl={apiUrl}
-            activeTab={tabs.activeTab}
-            updateActiveTab={tabs.updateActiveTab}
+        <button
+          className="swap-layout-btn"
+          onClick={() =>
+            setLayoutDirection((d) =>
+              d === "horizontal" ? "vertical" : "horizontal",
+            )
+          }
+          title="Swap Layout"
+        >
+          ⇋ {layoutDirection === "horizontal" ? "Horizontal" : "Vertical"}
+        </button>
+
+        <div className="main-area">
+          <QueryTabs
+            {...tabs}
+            activeId={activeId}
             loading={loading}
-            setLoading={setLoading}
-            connections={connections.connections}
-            onEditorContextMenu={ctxMenu.handleTextContextMenu}
+            activeConnType={activeConn?.db_type}
           />
-        ) : tabs.activeTab.type === 'query' ? (
-          <Split
-            key={`${layoutDirection}-${activeConn?.db_type || 'none'}`}
-            className={`split-container ${layoutDirection}`}
-            direction={layoutDirection}
-            sizes={[40, 60]}
-            minSize={100}
-            gutterSize={8}
-          >
-            {/* Query editor pane */}
-            <div className="pane query-section editor-pane">
-              {activeConn?.db_type === 'redis' ? (
-                <RedisAutocomplete
-                  value={tabs.activeTab.query}
-                  onChange={code => tabs.updateActiveTab({ query: code })}
-                  onKeyDown={(e) => tabs.handleKeyDown(e, tabs.activeTab.connectionId || activeId, 'redis')}
-                  onContextMenu={ctxMenu.handleTextContextMenu}
-                  disabled={!activeId}
+
+          {tabs.activeTab.type === "script" ? (
+            <ScriptPane
+              apiUrl={apiUrl}
+              activeTab={tabs.activeTab}
+              updateActiveTab={tabs.updateActiveTab}
+              loading={loading}
+              setLoading={setLoading}
+              connections={connections.connections}
+              onEditorContextMenu={ctxMenu.handleTextContextMenu}
+            />
+          ) : tabs.activeTab.type === "query" ? (
+            <Split
+              key={`${layoutDirection}-${activeConn?.db_type || "none"}`}
+              className={`split-container ${layoutDirection}`}
+              direction={layoutDirection}
+              sizes={[40, 60]}
+              minSize={100}
+              gutterSize={8}
+            >
+              {/* Query editor pane */}
+              <div className="pane query-section editor-pane">
+                {activeConn?.db_type === "redis" ? (
+                  <RedisAutocomplete
+                    value={tabs.activeTab.query}
+                    onChange={(code) => tabs.updateActiveTab({ query: code })}
+                    onKeyDown={(e) =>
+                      tabs.handleKeyDown(
+                        e,
+                        tabs.activeTab.connectionId || activeId,
+                        "redis",
+                      )
+                    }
+                    onContextMenu={ctxMenu.handleTextContextMenu}
+                    disabled={!activeId}
+                  />
+                ) : (
+                  <SqlAutocomplete
+                    value={tabs.activeTab.query}
+                    onChange={(code) => tabs.updateActiveTab({ query: code })}
+                    onKeyDown={(e) =>
+                      tabs.handleKeyDown(
+                        e,
+                        tabs.activeTab.connectionId || activeId,
+                        activeConn?.db_type,
+                      )
+                    }
+                    onContextMenu={ctxMenu.handleTextContextMenu}
+                    disabled={!activeId}
+                    placeholder={
+                      activeId
+                        ? "Type SQL query here... (Cmd/Ctrl + Enter to run)"
+                        : "Select or add a connection to start"
+                    }
+                    apiUrl={apiUrl}
+                    connectionId={tabs.activeTab.connectionId || activeId}
+                  />
+                )}
+
+                {/* Status information bar (placed above the gutter) */}
+                <div className="editor-status-bar">
+                  <div>
+                    {activeConn
+                      ? `${activeConn.connection_name} (${activeConn.db_type})`
+                      : "No connection selected"}
+                  </div>
+                  <div>
+                    {tabs.activeTab.results?.durationMs !== undefined
+                      ? `${tabs.activeTab.results.durationMs.toFixed(2)} ms`
+                      : ""}
+                  </div>
+                </div>
+              </div>
+
+              {/* Results pane */}
+              {activeConn?.db_type === "redis" ? (
+                <RedisPane
+                  activeTab={tabs.activeTab}
+                  loading={loading}
+                  connectionId={activeId}
+                  onQuery={tabs.executeQuery}
+                  onExport={(redisResult, command) =>
+                    exp.handleExportRedisResult(redisResult, command)
+                  }
                 />
               ) : (
-                <SqlAutocomplete
-                  value={tabs.activeTab.query}
-                  onChange={code => tabs.updateActiveTab({ query: code })}
-                  onKeyDown={(e) => tabs.handleKeyDown(e, tabs.activeTab.connectionId || activeId, activeConn?.db_type)}
-                  onContextMenu={ctxMenu.handleTextContextMenu}
-                  disabled={!activeId}
-                  placeholder={activeId ? 'Type SQL query here... (Cmd/Ctrl + Enter to run)' : 'Select or add a connection to start'}
-                  apiUrl={apiUrl}
-                  connectionId={tabs.activeTab.connectionId || activeId}
+                <ResultsPane
+                  activeTab={tabs.activeTab}
+                  layoutDirection={layoutDirection}
+                  loading={loading}
+                  editingCell={grid.editingCell}
+                  setEditingCell={grid.setEditingCell}
+                  updateActiveTab={tabs.updateActiveTab}
+                  undoMutation={grid.undoMutation}
+                  redoMutation={grid.redoMutation}
+                  cancelMutations={grid.cancelMutations}
+                  saveMutations={grid.saveMutations}
+                  handleCellDoubleClick={grid.handleCellDoubleClick}
+                  handleCellBlur={grid.handleCellBlur}
+                  handleRowAction={grid.handleRowAction}
+                  handleRowClick={handleRowClick}
+                  handleRowContextMenu={handleResultsContextMenu}
+                  handleExportClick={exp.handleExportClick}
+                  computeWorkingData={grid.computeWorkingData}
                 />
               )}
-
-              {/* Status information bar (placed above the gutter) */}
-              <div className="editor-status-bar">
-                <div>{activeConn ? `${activeConn.connection_name} (${activeConn.db_type})` : 'No connection selected'}</div>
-                <div>{tabs.activeTab.results?.durationMs !== undefined ? `${tabs.activeTab.results.durationMs.toFixed(2)} ms` : ''}</div>
-              </div>
-            </div>
-
-            {/* Results pane */}
-            {activeConn?.db_type === 'redis' ? (
-              <RedisPane
-                activeTab={tabs.activeTab}
-                loading={loading}
-                connectionId={activeId}
-                onQuery={tabs.executeQuery}
-                onExport={(redisResult, command) => exp.handleExportRedisResult(redisResult, command)}
-              />
-            ) : (
-              <ResultsPane
-                activeTab={tabs.activeTab}
-                layoutDirection={layoutDirection}
-                loading={loading}
-                editingCell={grid.editingCell}
-                setEditingCell={grid.setEditingCell}
-                updateActiveTab={tabs.updateActiveTab}
-                undoMutation={grid.undoMutation}
-                redoMutation={grid.redoMutation}
-                cancelMutations={grid.cancelMutations}
-                saveMutations={grid.saveMutations}
-                handleCellDoubleClick={grid.handleCellDoubleClick}
-                handleCellBlur={grid.handleCellBlur}
-                handleRowAction={grid.handleRowAction}
-                handleRowClick={handleRowClick}
-                handleRowContextMenu={handleResultsContextMenu}
-                handleExportClick={exp.handleExportClick}
-                computeWorkingData={grid.computeWorkingData}
-              />
-            )}
-          </Split>
-        ) : (
-          activeConn?.db_type === 'redis' ? (
+            </Split>
+          ) : activeConn?.db_type === "redis" ? (
             <RedisPane
               activeTab={tabs.activeTab}
               loading={loading}
               connectionId={activeId}
               onQuery={tabs.executeQuery}
-              onExport={(redisResult, command) => exp.handleExportRedisResult(redisResult, command)}
+              onExport={(redisResult, command) =>
+                exp.handleExportRedisResult(redisResult, command)
+              }
             />
           ) : (
             <ResultsPane
@@ -679,8 +918,8 @@ function App() {
               handleExportClick={exp.handleExportClick}
               computeWorkingData={grid.computeWorkingData}
             />
-          )
-        )}
+          )}
+        </div>
       </div>
 
       {/* Modals */}
@@ -704,7 +943,10 @@ function App() {
       />
       <ConnectionSwitchModal
         show={!!switchPrompt}
-        connectionName={connections.connections.find(c => c.id === switchPrompt?.targetId)?.connection_name || 'Selected connection'}
+        connectionName={
+          connections.connections.find((c) => c.id === switchPrompt?.targetId)
+            ?.connection_name || "Selected connection"
+        }
         onCreateNewTab={async () => {
           const targetId = switchPrompt?.targetId;
           if (!targetId) return;
@@ -724,9 +966,12 @@ function App() {
         onCancel={() => setSwitchPrompt(null)}
       />
       <HelpModal show={showHelpModal} onClose={() => setShowHelpModal(false)} />
-      <ContextMenu contextMenu={ctxMenu.contextMenu} onAction={handleMenuAction} />
+      <ContextMenu
+        contextMenu={ctxMenu.contextMenu}
+        onAction={handleMenuAction}
+      />
     </div>
   );
 }
 
-export default App
+export default App;

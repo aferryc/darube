@@ -4,6 +4,19 @@
   border-bottom: 1px solid var(--border);
   align-items: stretch;
   overflow: hidden;
+  -webkit-app-region: drag;
+  height: 44px;
+}
+
+.tab,
+.tabs-actions,
+.tab-action-btn,
+.tab-context-menu,
+.tab-context-item,
+.tabs-bar input,
+.tabs-bar button,
+.close-tab {
+  -webkit-app-region: no-drag;
 }
 
 .tabs-scroll {
@@ -59,7 +72,8 @@
 }
 
 .tab {
-  padding: 10px 18px;
+  height: 100%;
+  padding: 0 18px;
   background-color: transparent;
   color: var(--text-muted);
   border-right: 1px solid var(--border);
@@ -83,7 +97,7 @@
 }
 
 .tab.add-tab {
-  padding: 10px 15px;
+  padding: 0 15px;
   font-size: 16px;
 }
 

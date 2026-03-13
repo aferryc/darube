@@ -1,6 +1,7 @@
 const { contextBridge, ipcRenderer, clipboard } = require('electron');
 
 contextBridge.exposeInMainWorld('darube', {
+  platform: process.platform,
   openDirectory: () => ipcRenderer.invoke('dialog:openDirectory'),
   openFile: () => ipcRenderer.invoke('dialog:openFile'),
   clipboard: {
@@ -8,4 +9,3 @@ contextBridge.exposeInMainWorld('darube', {
     readText: () => clipboard.readText(),
   },
 });
-

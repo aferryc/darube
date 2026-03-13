@@ -26,9 +26,19 @@ logMessage(`Log file: ${logFile}`);
 
 function createWindow(enginePort) {
   logMessage(`Creating window with enginePort: ${enginePort}`);
+  const isMac = process.platform === "darwin";
   mainWindow = new BrowserWindow({
     width: 1200,
     height: 800,
+    backgroundColor: "#0f172a",
+    ...(isMac
+      ? {
+          // Remove the native macOS titlebar so the app UI reaches the top edge.
+          // Traffic lights are kept.
+          titleBarStyle: "hidden",
+          trafficLightPosition: { x: 12, y: 10 },
+        }
+      : {}),
     webPreferences: {
       preload: path.join(__dirname, "preload.js"),
       nodeIntegration: false,

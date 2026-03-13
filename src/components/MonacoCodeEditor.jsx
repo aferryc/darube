@@ -213,7 +213,7 @@ export function MonacoCodeEditor({
   }
 
   return (
-    <div className={className} style={{ ...style, position: 'relative' }}>
+    <div className={className} style={{ ...style, position: 'relative', overflow: 'hidden' }}>
       <div ref={containerRef} style={{ position: 'absolute', inset: 0 }} />
       {showPlaceholder && (
         <div

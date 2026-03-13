@@ -196,7 +196,6 @@ export function Sidebar({
           <>
             <div className="sidebar-header">
               <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                <img src={logoApp} alt="Darube" style={{ height: '24px' }} />
                 <span>Connections</span>
               </div>
               <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>

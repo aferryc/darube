@@ -16,7 +16,8 @@
   position: relative;
   font-family: "JetBrains Mono", "Menlo", monospace;
   font-size: 12px;
-  overflow-y: auto;
+  /* Monaco (and textarea fallback) manage their own scrolling. */
+  overflow: hidden;
 }
 
 .query-editor-container:focus-within {

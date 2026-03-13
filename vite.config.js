@@ -10,6 +10,18 @@ export default defineConfig({
     port: 5173,
     strictPort: true,
   },
+  build: {
+    // Monaco is intentionally large; keep it in its own async chunk so the main UI stays small.
+    rollupOptions: {
+      output: {
+        manualChunks(id) {
+          if (id.includes('node_modules/monaco-editor/')) return 'monaco';
+        },
+      },
+    },
+    // Avoid noisy warnings when Monaco chunk exceeds the default 500kB.
+    chunkSizeWarningLimit: 5000,
+  },
   test: {
     globals: true,
     environment: 'jsdom',
