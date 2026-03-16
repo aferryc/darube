@@ -59,6 +59,13 @@ const EMPTY_FORM = {
 
   // Redis extras
   is_cluster: false,
+
+  // Teleport (tsh) options
+  teleport_enabled: false,
+  teleport_cluster: "",
+  teleport_db_service: "",
+  teleport_user: "",
+  teleport_profile: "",
 };
 
 function App() {
@@ -297,7 +304,10 @@ function App() {
       const res = await fetch(url, {
         method,
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ ...formData, port: portInt }),
+        body: JSON.stringify({
+          ...formData,
+          port: portInt,
+        }),
       });
 
       if (!res.ok) {
@@ -398,7 +408,10 @@ function App() {
       const res = await fetch(url, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ ...formData, port: portInt }),
+        body: JSON.stringify({
+          ...formData,
+          port: portInt,
+        }),
       });
 
       if (!res.ok) {

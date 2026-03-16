@@ -18,4 +18,12 @@ type ConnectionConfig struct {
 	User           string `json:"user"`
 	Password       string `json:"password"`
 	FolderID       string `json:"folder_id,omitempty"`
+
+	// Teleport (tsh) options; when enabled, the engine will route
+	// database connectivity via the user's Teleport configuration.
+	TeleportEnabled   bool   `json:"teleport_enabled,omitempty"`
+	TeleportCluster   string `json:"teleport_cluster,omitempty"`
+	TeleportDBService string `json:"teleport_db_service,omitempty"`
+	TeleportUser      string `json:"teleport_user,omitempty"`
+	TeleportProfile   string `json:"teleport_profile,omitempty"`
 }

@@ -259,6 +259,69 @@ export function ConnectionModal({
                     </div>
                   </div>
                 )}
+
+                {!isSQLite && (
+                  <div className="form-group mt-10">
+                    <label className="form-checkbox-label">
+                      <input
+                        name="teleport_enabled"
+                        type="checkbox"
+                        checked={!!formData.teleport_enabled}
+                        onChange={onFieldChange}
+                      />
+                      Connect via Teleport (tsh)
+                    </label>
+                    <div className="form-help-text">
+                      Requires <code>tsh</code> to be installed and configured on this machine.
+                    </div>
+                  </div>
+                )}
+
+                {formData.teleport_enabled && !isSQLite && (
+                  <div className="flex-column gap-12 mt-10">
+                    <div className="form-row">
+                      <div className="form-group">
+                        <label>Teleport Cluster</label>
+                        <input
+                          name="teleport_cluster"
+                          value={formData.teleport_cluster || ''}
+                          onChange={onFieldChange}
+                          placeholder="example-teleport-cluster"
+                        />
+                      </div>
+                      <div className="form-group">
+                        <label>DB Service Name</label>
+                        <input
+                          name="teleport_db_service"
+                          value={formData.teleport_db_service || ''}
+                          onChange={onFieldChange}
+                          placeholder="postgres-prod"
+                        />
+                      </div>
+                    </div>
+
+                    <div className="form-row">
+                      <div className="form-group">
+                        <label>Teleport User (Optional)</label>
+                        <input
+                          name="teleport_user"
+                          value={formData.teleport_user || ''}
+                          onChange={onFieldChange}
+                          placeholder="alice"
+                        />
+                      </div>
+                      <div className="form-group">
+                        <label>Teleport Profile (Optional)</label>
+                        <input
+                          name="teleport_profile"
+                          value={formData.teleport_profile || ''}
+                          onChange={onFieldChange}
+                          placeholder="default"
+                        />
+                      </div>
+                    </div>
+                  </div>
+                )}
               </>
             ) : (
               <>
