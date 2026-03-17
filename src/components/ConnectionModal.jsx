@@ -4,11 +4,12 @@ const NOSQL_TYPES = new Set(['redis', 'mongodb', 'cassandra', 'elasticsearch', '
 const API_TYPES = new Set(['http', 'grpc']);
 
 export function ConnectionModal({
-  show, editingId, formData, setFormData, folders,
+  show, editingId, formData, setFormData, folders, apiUrl,
   onSubmit, onTest, onClose,
 }) {
   const [activeTab, setActiveTab] = React.useState('general');
   const [connectionCategory, setConnectionCategory] = React.useState('sql');
+  const [teleportProfiles, setTeleportProfiles] = React.useState([]);
 
   // Sync category with form data if editing
   React.useEffect(() => {
@@ -26,6 +27,14 @@ export function ConnectionModal({
   React.useEffect(() => {
     if (formData.db_type === 'sqlite') setActiveTab('general');
   }, [formData.db_type]);
+
+  React.useEffect(() => {
+    if (!show || !apiUrl) return;
+    fetch(`${apiUrl}/api/settings`)
+      .then(r => r.json())
+      .then(data => setTeleportProfiles(data.teleport_profiles || []))
+      .catch(() => setTeleportProfiles([]));
+  }, [show, apiUrl]);
 
   if (!show) return null;
 
@@ -280,43 +289,29 @@ export function ConnectionModal({
                 {formData.teleport_enabled && !isSQLite && (
                   <div className="flex-column gap-12 mt-10">
                     <div className="form-row">
-                      <div className="form-group">
-                        <label>Teleport Cluster</label>
-                        <input
-                          name="teleport_cluster"
-                          value={formData.teleport_cluster || ''}
+                      <div className="form-group flex-1">
+                        <label>Teleport Profile</label>
+                        <select
+                          name="teleport_profile_id"
+                          value={formData.teleport_profile_id || ''}
                           onChange={onFieldChange}
-                          placeholder="example-teleport-cluster"
-                        />
+                        >
+                          <option value="">Select a profile...</option>
+                          {teleportProfiles.map(p => (
+                            <option key={p.id} value={p.id}>{p.name} ({p.cluster || '—'})</option>
+                          ))}
+                        </select>
+                        <div className="form-help-text" style={{ marginTop: 4 }}>
+                          Add profiles in Settings → Teleport.
+                        </div>
                       </div>
-                      <div className="form-group">
+                      <div className="form-group flex-1">
                         <label>DB Service Name</label>
                         <input
                           name="teleport_db_service"
                           value={formData.teleport_db_service || ''}
                           onChange={onFieldChange}
                           placeholder="postgres-prod"
-                        />
-                      </div>
-                    </div>
-
-                    <div className="form-row">
-                      <div className="form-group">
-                        <label>Teleport User (Optional)</label>
-                        <input
-                          name="teleport_user"
-                          value={formData.teleport_user || ''}
-                          onChange={onFieldChange}
-                          placeholder="alice"
-                        />
-                      </div>
-                      <div className="form-group">
-                        <label>Teleport Profile (Optional)</label>
-                        <input
-                          name="teleport_profile"
-                          value={formData.teleport_profile || ''}
-                          onChange={onFieldChange}
-                          placeholder="default"
                         />
                       </div>
                     </div>

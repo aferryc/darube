@@ -137,31 +137,19 @@
   flex: 1;
 }
 
-.swap-layout-btn {
-  position: fixed;
-  bottom: 0;
-  left: 0;
-  width: 260px;
-  background: var(--bg-card);
-  border: 0;
-  border-top: 1px solid var(--border);
-  border-right: 1px solid var(--border);
-  color: var(--text-muted);
-  font-size: 11px;
-  padding: 4px 12px;
-  text-align: left;
-  border-radius: 0;
-  cursor: pointer;
-  transition:
-    background 0.15s ease,
-    color 0.15s ease;
-  z-index: 5;
-  letter-spacing: 0.03em;
+.settings-view {
+  display: flex;
+  flex-direction: column;
+  padding: 16px 20px;
+  height: 100%;
+  box-sizing: border-box;
 }
 
-.swap-layout-btn:hover {
-  background: rgba(79, 140, 255, 0.1);
-  color: var(--accent);
-  transform: none;
-  box-shadow: none;
+.settings-body {
+  margin-top: 16px;
+  overflow: auto;
+}
+
+.settings-section {
+  min-height: 0;
 }

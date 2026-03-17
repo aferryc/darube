@@ -177,6 +177,76 @@ func PatchGRPCFolderHandler(w http.ResponseWriter, r *http.Request) {
 	sendJSONResponse(w, CommandOutput{Success: true, Message: "gRPC folder updated"}, http.StatusOK)
 }
 
+// GRPCSampleRequestHandler handles POST /api/grpc/{id}/sample-request
+func GRPCSampleRequestHandler(w http.ResponseWriter, r *http.Request) {
+	id := r.PathValue("id")
+	if id == "" {
+		sendJSONResponse(w, map[string]interface{}{"success": false, "error": "ID is required"}, http.StatusBadRequest)
+		return
+	}
+	cfg, err := store.GetGRPCConfig(id)
+	if err != nil {
+		sendJSONResponse(w, map[string]interface{}{"success": false, "error": err.Error()}, http.StatusNotFound)
+		return
+	}
+	var req struct {
+		Service string `json:"service"`
+		Method  string `json:"method"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		sendJSONResponse(w, map[string]interface{}{"success": false, "error": "Invalid request body"}, http.StatusBadRequest)
+		return
+	}
+	service := strings.TrimSpace(req.Service)
+	method := strings.TrimSpace(req.Method)
+	if service == "" || method == "" {
+		sendJSONResponse(w, map[string]interface{}{"success": false, "error": "service and method are required"}, http.StatusOK)
+		return
+	}
+
+	ctx, cancel := context.WithTimeout(r.Context(), 12*time.Second)
+	defer cancel()
+	conn, err := dialGRPC(ctx, *cfg)
+	if err != nil {
+		sendJSONResponse(w, map[string]interface{}{"success": false, "error": err.Error()}, http.StatusOK)
+		return
+	}
+	defer conn.Close()
+
+	files, err := resolveFilesForSymbol(ctx, conn, service+"."+method)
+	if err != nil {
+		sendJSONResponse(w, map[string]interface{}{"success": false, "error": err.Error()}, http.StatusOK)
+		return
+	}
+	desc, err := files.FindDescriptorByName(protoreflect.FullName(service))
+	if err != nil {
+		sendJSONResponse(w, map[string]interface{}{"success": false, "error": err.Error()}, http.StatusOK)
+		return
+	}
+	svc, ok := desc.(protoreflect.ServiceDescriptor)
+	if !ok {
+		sendJSONResponse(w, map[string]interface{}{"success": false, "error": "resolved descriptor is not a service"}, http.StatusOK)
+		return
+	}
+	m := svc.Methods().ByName(protoreflect.Name(method))
+	if m == nil {
+		sendJSONResponse(w, map[string]interface{}{"success": false, "error": "method not found on service"}, http.StatusOK)
+		return
+	}
+	if m.IsStreamingClient() || m.IsStreamingServer() {
+		sendJSONResponse(w, map[string]interface{}{"success": false, "error": "streaming methods are not supported"}, http.StatusOK)
+		return
+	}
+
+	inMsg := dynamicpb.NewMessage(m.Input())
+	sampleBytes, err := (protojson.MarshalOptions{Multiline: true, Indent: "  ", EmitUnpopulated: true}).Marshal(inMsg)
+	if err != nil {
+		sendJSONResponse(w, map[string]interface{}{"success": false, "error": err.Error()}, http.StatusOK)
+		return
+	}
+	sendJSONResponse(w, map[string]interface{}{"success": true, "sample": string(sampleBytes)}, http.StatusOK)
+}
+
 // GRPCReflectHandler handles POST /api/grpc/{id}/reflect
 func GRPCReflectHandler(w http.ResponseWriter, r *http.Request) {
 	id := r.PathValue("id")
@@ -204,6 +274,48 @@ func GRPCReflectHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	sendJSONResponse(w, GRPCReflectResponse{Success: true, Services: services}, http.StatusOK)
+}
+
+// GRPCMethodsHandler handles POST /api/grpc/{id}/methods
+func GRPCMethodsHandler(w http.ResponseWriter, r *http.Request) {
+	id := r.PathValue("id")
+	if id == "" {
+		sendJSONResponse(w, map[string]interface{}{"success": false, "error": "ID is required"}, http.StatusBadRequest)
+		return
+	}
+	cfg, err := store.GetGRPCConfig(id)
+	if err != nil {
+		sendJSONResponse(w, map[string]interface{}{"success": false, "error": err.Error()}, http.StatusNotFound)
+		return
+	}
+	var req struct {
+		Service string `json:"service"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		sendJSONResponse(w, map[string]interface{}{"success": false, "error": "Invalid request body"}, http.StatusBadRequest)
+		return
+	}
+	service := strings.TrimSpace(req.Service)
+	if service == "" {
+		sendJSONResponse(w, map[string]interface{}{"success": false, "error": "service is required"}, http.StatusOK)
+		return
+	}
+
+	ctx, cancel := context.WithTimeout(r.Context(), 12*time.Second)
+	defer cancel()
+	conn, err := dialGRPC(ctx, *cfg)
+	if err != nil {
+		sendJSONResponse(w, map[string]interface{}{"success": false, "error": err.Error()}, http.StatusOK)
+		return
+	}
+	defer conn.Close()
+
+	methods, err := listGRPCMethods(ctx, conn, service)
+	if err != nil {
+		sendJSONResponse(w, map[string]interface{}{"success": false, "error": err.Error()}, http.StatusOK)
+		return
+	}
+	sendJSONResponse(w, map[string]interface{}{"success": true, "methods": methods}, http.StatusOK)
 }
 
 // GRPCInvokeHandler handles POST /api/grpc/{id}/invoke
@@ -347,6 +459,30 @@ func dialGRPC(ctx context.Context, cfg store.GRPCConfig) (*grpc.ClientConn, erro
 		creds = insecure.NewCredentials()
 	}
 	return grpc.DialContext(ctx, addr, grpc.WithTransportCredentials(creds), grpc.WithBlock())
+}
+
+func listGRPCMethods(ctx context.Context, conn *grpc.ClientConn, service string) ([]string, error) {
+	files, err := resolveFilesForSymbol(ctx, conn, service)
+	if err != nil {
+		return nil, err
+	}
+	desc, err := files.FindDescriptorByName(protoreflect.FullName(service))
+	if err != nil {
+		return nil, err
+	}
+	svc, ok := desc.(protoreflect.ServiceDescriptor)
+	if !ok {
+		return nil, fmt.Errorf("resolved descriptor is not a service")
+	}
+	out := make([]string, 0, svc.Methods().Len())
+	for i := 0; i < svc.Methods().Len(); i++ {
+		m := svc.Methods().Get(i)
+		if m.IsStreamingClient() || m.IsStreamingServer() {
+			continue
+		}
+		out = append(out, string(m.Name()))
+	}
+	return out, nil
 }
 
 func listGRPCServices(ctx context.Context, conn *grpc.ClientConn) ([]string, error) {

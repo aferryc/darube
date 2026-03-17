@@ -277,7 +277,7 @@ export function HttpRequestPane({ apiUrl, connectionId, activeTab, updateActiveT
           )}
 
           {activeSub === 'body' && (
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 10, minHeight: 0 }}>
+            <div style={{ display: 'flex', flexDirection: 'column', flex: 1, minHeight: 0 }}>
               <div style={{ display: 'flex', gap: 10, alignItems: 'center' }}>
                 <span className="api-pill">Body</span>
                 <select
@@ -299,6 +299,7 @@ export function HttpRequestPane({ apiUrl, connectionId, activeTab, updateActiveT
                     language={state.body.type === 'json' ? 'json' : 'plaintext'}
                     editorRole="http-body"
                     className="query-editor-container"
+                    style={{ height: '100%' }}
                     placeholder={state.body.type === 'json' ? '{\n  \n}' : ''}
                   />
                 </div>

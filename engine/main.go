@@ -93,6 +93,8 @@ func buildMux() *http.ServeMux {
 	mux.HandleFunc("DELETE /api/grpc/{id}", api.DeleteGRPCHandler)
 	mux.HandleFunc("PATCH /api/grpc/{id}/folder", api.PatchGRPCFolderHandler)
 	mux.HandleFunc("POST /api/grpc/{id}/reflect", api.GRPCReflectHandler)
+	mux.HandleFunc("POST /api/grpc/{id}/methods", api.GRPCMethodsHandler)
+	mux.HandleFunc("POST /api/grpc/{id}/sample-request", api.GRPCSampleRequestHandler)
 	mux.HandleFunc("POST /api/grpc/{id}/invoke", api.GRPCInvokeHandler)
 
 	// Data Export.
@@ -113,6 +115,14 @@ func buildMux() *http.ServeMux {
 	// Workspace state.
 	mux.HandleFunc("GET /api/workspace", api.GetWorkspaceHandler)
 	mux.HandleFunc("POST /api/workspace", api.SaveWorkspaceHandler)
+
+	// Settings (layout, Teleport profiles).
+	mux.HandleFunc("GET /api/settings", api.GetSettingsHandler)
+	mux.HandleFunc("PUT /api/settings", api.PutSettingsHandler)
+	mux.HandleFunc("POST /api/settings/teleport-profiles", api.CreateTeleportProfileHandler)
+	mux.HandleFunc("PUT /api/settings/teleport-profiles/{id}", api.UpdateTeleportProfileHandler)
+	mux.HandleFunc("DELETE /api/settings/teleport-profiles/{id}", api.DeleteTeleportProfileHandler)
+	mux.HandleFunc("GET /api/teleport/detect", api.TeleportDetectHandler)
 
 	return mux
 }

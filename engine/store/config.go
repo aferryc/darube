@@ -21,9 +21,10 @@ type ConnectionConfig struct {
 
 	// Teleport (tsh) options; when enabled, the engine will route
 	// database connectivity via the user's Teleport configuration.
-	TeleportEnabled   bool   `json:"teleport_enabled,omitempty"`
-	TeleportCluster   string `json:"teleport_cluster,omitempty"`
-	TeleportDBService string `json:"teleport_db_service,omitempty"`
-	TeleportUser      string `json:"teleport_user,omitempty"`
-	TeleportProfile   string `json:"teleport_profile,omitempty"`
+	TeleportEnabled    bool   `json:"teleport_enabled,omitempty"`
+	TeleportProfileID  string `json:"teleport_profile_id,omitempty"` // References a saved profile in settings
+	TeleportDBService  string `json:"teleport_db_service,omitempty"` // Per-connection: which DB in the cluster
+	TeleportCluster    string `json:"teleport_cluster,omitempty"`    // Resolved from profile or inline (backwards compat)
+	TeleportUser       string `json:"teleport_user,omitempty"`
+	TeleportProfile    string `json:"teleport_profile,omitempty"`
 }

@@ -33,9 +33,13 @@ func Connect(config store.ConnectionConfig) (*sql.DB, error) {
 		return nil, err
 	}
 
+	// Resolve Teleport profile from settings if TeleportProfileID is set.
+	cfg := config
+	store.ResolveTeleportConfig(&cfg)
+
 	// If Teleport is enabled for this connection, ensure tsh is available and
 	// let the wrapper adjust or validate the DSN as needed.
-	dsn, err = teleport.EnsureAndBuildDSN(config, dsn)
+	dsn, err = teleport.EnsureAndBuildDSN(cfg, dsn)
 	if err != nil {
 		return nil, err
 	}
