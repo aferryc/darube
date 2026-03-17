@@ -137,6 +137,11 @@ func (e *ScriptEngine) RunWithOutput(ctx context.Context, script string) (interf
 	// Convenience: expose sleep() directly.
 	_ = vm.Set("sleep", sleepFn)
 
+	// Network helpers (HTTP + gRPC). These are intentionally plain and safe: no raw Go structs.
+	if err := installNetAPIs(vm, ctx); err != nil {
+		return nil, logs, err
+	}
+
 	// Inject global db API.
 	dbObj := vm.NewObject()
 	connCache := map[string]*goja.Object{}

@@ -1,12 +1,13 @@
 # Darube
 
-Darube is a desktop database manager (think DBeaver / DataGrip) built with Electron + React, backed by a local Go “engine”.
+Darube is a one-stop developer tool built with Electron + React, backed by a local Go “engine”. It provides a unified interface for database management, Redis, API testing, and scripting.
 
 ## Features
 
 - Connections: create/save/edit/delete, connect/disconnect/reconnect
 - Databases: PostgreSQL, MySQL/MariaDB, SQL Server, SQLite, Oracle
 - Redis: connect, run commands, export results, edit values from the results pane
+- API testing: HTTP / gRPC
 - Query tabs: multiple tabs, autosaved workspace, tabs are bound to connections
 - Scripting: run JavaScript (goja) to query across multiple connections
 - Schema explorer: databases/schemas/tables/columns, view DML, view indexes
@@ -19,7 +20,7 @@ Darube is a desktop database manager (think DBeaver / DataGrip) built with Elect
 - The Go engine is a local HTTP server that:
   - persists connection configs and folders as JSON files
   - keeps active connections in memory
-  - runs SQL queries/mutations and Redis commands
+  - runs SQL queries/mutations, Redis commands, HTTP requests, gRPC requests
 
 ## Development
 
@@ -59,22 +60,24 @@ Darube scripts run JavaScript using goja inside the local Go engine. Scripts are
 ### API
 
 ```js
-const pg = db.conn("prod-postgres") // id (or unique connection name)
-const redis = db.conn("cache")      // id (or unique connection name)
+const pg = db.conn("prod-postgres"); // id (or unique connection name)
+const redis = db.conn("cache"); // id (or unique connection name)
 
-const users = pg.query("SELECT id FROM users")
+const users = pg.query("SELECT id FROM users");
 for (const u of users) {
-  redis.set(`user:${u.id}`, "active")
+  redis.set(`user:${u.id}`, "active");
 }
 
-sleep(250) // or utils.sleep(250)
-console.log(utils.uuidv7(), utils.now(), utils.nowUnixMs())
+sleep(250); // or utils.sleep(250)
+console.log(utils.uuidv7(), utils.now(), utils.nowUnixMs());
 ```
 
 Connection methods:
 
 - SQL: `query(sql) -> []object`, `exec(sql) -> number`, `one(sql) -> object`, `scalar(sql) -> primitive`
 - Redis: `set(key, value)`, `get(key)`, `del(key)`
+- HTTP: `get(url) -> string`, `post(url, body) -> string`, `put(url, body) -> string`, `delete(url) -> string`
+- gRPC: `call(service, method, body) -> interface`
 
 Utilities:
 

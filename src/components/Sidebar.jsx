@@ -49,6 +49,7 @@ function ConnectionItem({ c, activeId, expandedConns, expandedTree, metadata, ex
   draggedConnId, handleConnectionClick, handleEditConnection, handleDeleteConnection,
   handleDisconnect, handleReconnect, fetchConnections, handleConnectionContextMenu,
   handleTableContextMenu, toggleTree, setDraggedConnId, setDragOverFolderId, inFolder }) {
+  const isStateless = c.db_type === 'http' || c.db_type === 'grpc';
   return (
     <div
       key={c.id}
@@ -70,6 +71,8 @@ function ConnectionItem({ c, activeId, expandedConns, expandedTree, metadata, ex
           {c.db_type === 'sqlite'   && <img src={iconSqlite}    className="icon icon-light" alt="SQLite" />}
           {c.db_type === 'sqlserver' && <img src={iconSqlServer} className="icon icon-light" alt="SQL Server" />}
           {c.db_type === 'redis'     && <img src={iconRedis}     className="icon icon-light" alt="Redis" />}
+          {c.db_type === 'http'      && <span style={{ fontSize: '16px', lineHeight: 1 }}>🌐</span>}
+          {c.db_type === 'grpc'      && <span style={{ fontSize: '16px', lineHeight: 1 }}>🔌</span>}
           <span style={{ fontWeight: 500 }}>{c.connection_name}</span>
         </div>
         <div className="connection-item-controls">
@@ -77,14 +80,14 @@ function ConnectionItem({ c, activeId, expandedConns, expandedTree, metadata, ex
           <img src={iconDelete}  className="icon-sm icon-light" alt="Delete"  onClick={(e) => handleDeleteConnection(c.id, e)} title="Delete Connection" />
           <img src={iconRefresh} className="icon-sm icon-light" alt="Refresh" onClick={(e) => { e.stopPropagation(); fetchConnections(); }} title="Refresh" />
           <div className="flex-grow" />
-          {c.status === 'connected'
+          {!isStateless && (c.status === 'connected'
             ? <button onClick={(e) => { e.stopPropagation(); handleDisconnect(c.id); }} className="secondary tab-connect-btn">Stop</button>
             : <button onClick={(e) => { e.stopPropagation(); handleReconnect(c.id); }} className="tab-connect-btn">Connect</button>
-          }
+          )}
         </div>
       </div>
 
-      {c.db_type !== 'redis' && expandedConns[c.id] && metadata[c.id] && c.status === 'connected' && (
+      {c.db_type !== 'redis' && c.db_type !== 'http' && c.db_type !== 'grpc' && expandedConns[c.id] && metadata[c.id] && c.status === 'connected' && (
         <div className="metadata-tree">
             <div className="metadata-group">
               <div className="metadata-title">Databases</div>
@@ -189,6 +192,8 @@ export function Sidebar({
                 {c.db_type === 'sqlite'   && <img src={iconSqlite}    className="icon icon-light" alt="SQLite" />}
                 {c.db_type === 'sqlserver' && <img src={iconSqlServer} className="icon icon-light" alt="SQL Server" />}
                 {c.db_type === 'redis'     && <img src={iconRedis}     className="icon icon-light" alt="Redis" />}
+                {c.db_type === 'http'      && <span style={{ fontSize: '18px', lineHeight: 1 }}>🌐</span>}
+                {c.db_type === 'grpc'      && <span style={{ fontSize: '18px', lineHeight: 1 }}>🔌</span>}
               </div>
             ))}
           </div>

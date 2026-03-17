@@ -74,6 +74,40 @@ func ListConnectionsHandler(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
+	// 3. HTTP Connections
+	httpSaved, err := store.ReadHTTPConnections()
+	if err == nil {
+		for _, c := range httpSaved {
+			results = append(results, ConnectionStatus{
+				ID:             c.ID,
+				ConnectionName: c.ConnectionName,
+				DBType:         "http",
+				Host:           c.BaseURL,
+				Port:           0,
+				User:           c.Auth.Username,
+				Status:         "connected", // stateless
+				FolderID:       c.FolderID,
+			})
+		}
+	}
+
+	// 4. gRPC Connections
+	grpcSaved, err := store.ReadGRPCConnections()
+	if err == nil {
+		for _, c := range grpcSaved {
+			results = append(results, ConnectionStatus{
+				ID:             c.ID,
+				ConnectionName: c.ConnectionName,
+				DBType:         "grpc",
+				Host:           c.Address,
+				Port:           0,
+				User:           c.Auth.Username,
+				Status:         "connected", // stateless
+				FolderID:       c.FolderID,
+			})
+		}
+	}
+
 	sendJSONResponse(w, ListConnectionsResponse{
 		Connections: results,
 	}, http.StatusOK)

@@ -1,6 +1,7 @@
 import React from 'react';
 
 const NOSQL_TYPES = new Set(['redis', 'mongodb', 'cassandra', 'elasticsearch', 'opensearch']);
+const API_TYPES = new Set(['http', 'grpc']);
 
 export function ConnectionModal({
   show, editingId, formData, setFormData, folders,
@@ -12,7 +13,9 @@ export function ConnectionModal({
   // Sync category with form data if editing
   React.useEffect(() => {
     if (show && editingId) {
-      if (NOSQL_TYPES.has(formData.db_type)) {
+      if (API_TYPES.has(formData.db_type)) {
+        setConnectionCategory('api');
+      } else if (NOSQL_TYPES.has(formData.db_type)) {
         setConnectionCategory('nosql');
       } else {
         setConnectionCategory('sql');
@@ -29,6 +32,8 @@ export function ConnectionModal({
   const update = (field, value) => setFormData(prev => ({ ...prev, [field]: value }));
   const isSQLite = formData.db_type === 'sqlite';
   const isOracle = formData.db_type === 'oracle';
+  const isHttp = formData.db_type === 'http';
+  const isGrpc = formData.db_type === 'grpc';
 
   const onFieldChange = (e) => {
     const { name, type, value, checked } = e.target;
@@ -86,6 +91,19 @@ export function ConnectionModal({
         update('db_type', 'redis');
         update('port', 6379);
       }
+    } else if (cat === 'api') {
+      if (!API_TYPES.has(formData.db_type)) {
+        update('db_type', 'http');
+        update('base_url', '');
+        update('address', '');
+        update('tls', false);
+        update('insecure_tls', false);
+        update('server_name', '');
+        update('auth_type', 'none');
+        update('bearer_token', '');
+        update('auth_username', '');
+        update('auth_password', '');
+      }
     } else {
       update('db_type', 'postgres');
     }
@@ -111,6 +129,13 @@ export function ConnectionModal({
                 onClick={onCategoryClick}
               >
                 NoSQL
+              </span>
+              <span
+                className={`category-tab ${connectionCategory === 'api' ? 'active' : ''}`}
+                data-cat="api"
+                onClick={onCategoryClick}
+              >
+                API
               </span>
             </div>
           </div>
@@ -312,6 +337,97 @@ export function ConnectionModal({
                 )}
               </>
             )
+          ) : connectionCategory === 'api' ? (
+            <>
+              <div className="form-group">
+                <label>Name</label>
+                <input name="connection_name" autoFocus required value={formData.connection_name} onChange={onFieldChange} placeholder="Payments API" />
+              </div>
+
+              <div className="form-row">
+                <div className="form-group">
+                  <label>Type</label>
+                  <select value={formData.db_type} onChange={(e) => update('db_type', e.target.value)}>
+                    <option value="http">HTTP</option>
+                    <option value="grpc">gRPC</option>
+                  </select>
+                </div>
+                {folders.length > 0 && (
+                  <div className="form-group">
+                    <label>Folder (Optional)</label>
+                    <select name="folder_id" value={formData.folder_id || ''} onChange={onFieldChange}>
+                      <option value="">Uncategorized</option>
+                      {folders.map(f => <option key={f.id} value={f.id}>{f.name}</option>)}
+                    </select>
+                  </div>
+                )}
+              </div>
+
+              {isHttp && (
+                <div className="form-group">
+                  <label>Base URL</label>
+                  <input name="base_url" required value={formData.base_url || ''} onChange={onFieldChange} placeholder="https://api.example.com" />
+                </div>
+              )}
+
+              {isGrpc && (
+                <>
+                  <div className="form-group">
+                    <label>Address</label>
+                    <input name="address" required value={formData.address || ''} onChange={onFieldChange} placeholder="grpc.example.com:443" />
+                  </div>
+                  <div className="form-row">
+                    <div className="form-group">
+                      <label className="form-checkbox-label">
+                        <input name="tls" type="checkbox" checked={!!formData.tls} onChange={onFieldChange} />
+                        TLS
+                      </label>
+                    </div>
+                    <div className="form-group">
+                      <label className="form-checkbox-label">
+                        <input name="insecure_tls" type="checkbox" checked={!!formData.insecure_tls} onChange={onFieldChange} />
+                        Insecure TLS
+                      </label>
+                    </div>
+                  </div>
+                  <div className="form-group">
+                    <label>Server Name (Optional)</label>
+                    <input name="server_name" value={formData.server_name || ''} onChange={onFieldChange} placeholder="override SNI (rare)" />
+                  </div>
+                </>
+              )}
+
+              <div className="form-row">
+                <div className="form-group flex-1">
+                  <label>Auth</label>
+                  <select name="auth_type" value={formData.auth_type || 'none'} onChange={onFieldChange}>
+                    <option value="none">None</option>
+                    <option value="bearer">Bearer Token</option>
+                    <option value="basic">Basic</option>
+                  </select>
+                </div>
+              </div>
+
+              {formData.auth_type === 'bearer' && (
+                <div className="form-group">
+                  <label>Bearer Token</label>
+                  <input name="bearer_token" value={formData.bearer_token || ''} onChange={onFieldChange} placeholder="eyJhbGciOi..." />
+                </div>
+              )}
+
+              {formData.auth_type === 'basic' && (
+                <div className="form-row">
+                  <div className="form-group">
+                    <label>Username</label>
+                    <input name="auth_username" value={formData.auth_username || ''} onChange={onFieldChange} />
+                  </div>
+                  <div className="form-group">
+                    <label>Password</label>
+                    <input name="auth_password" type="password" value={formData.auth_password || ''} onChange={onFieldChange} />
+                  </div>
+                </div>
+              )}
+            </>
           ) : (
             <>
               {/* NoSQL / Redis Form */}

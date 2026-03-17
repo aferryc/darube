@@ -5,6 +5,9 @@ import { MonacoCodeEditor } from './MonacoCodeEditor';
 
 const SUGGESTIONS = [
   { label: 'db.conn', insert: 'db.conn("', tail: '")', kind: 'api', desc: 'Get a connection by ID (or name)' },
+  { label: 'http.request', insert: 'http.request({ method: "GET", url: "', tail: '" })', kind: 'api', desc: 'HTTP request (curl-like)' },
+  { label: 'http.conn', insert: 'http.conn("', tail: '")', kind: 'api', desc: 'Get an HTTP connection by ID (or name)' },
+  { label: 'grpc.conn', insert: 'grpc.conn("', tail: '")', kind: 'api', desc: 'Get a gRPC connection by ID (or name)' },
 
   { label: 'sleep', insert: 'sleep(', tail: ')', kind: 'api', desc: 'Pause script (ms)' },
   { label: 'utils.sleep', insert: 'utils.sleep(', tail: ')', kind: 'api', desc: 'Pause script (ms)' },

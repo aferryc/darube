@@ -41,8 +41,8 @@ export function useConnections(apiUrl) {
   const fetchMetadata = async (id) => {
     try {
       const conn = connections.find(c => c.id === id);
-      // Redis connections don't have SQL metadata endpoints in the engine.
-      if (conn?.db_type === 'redis') {
+      // Non-SQL connections don't have SQL metadata endpoints in the engine.
+      if (conn?.db_type === 'redis' || conn?.db_type === 'http' || conn?.db_type === 'grpc') {
         setMetadata(prev => ({
           ...prev,
           [id]: { databases: [], schemas: [] },
@@ -72,7 +72,7 @@ export function useConnections(apiUrl) {
     let toFetch = false;
     let newExpanded = null;
     connections.forEach(c => {
-      if (c.db_type !== 'redis' && c.status === 'connected' && !metadata[c.id] && expandedConns[c.id] !== true) {
+      if (c.db_type !== 'redis' && c.db_type !== 'http' && c.db_type !== 'grpc' && c.status === 'connected' && !metadata[c.id] && expandedConns[c.id] !== true) {
         if (!newExpanded) newExpanded = { ...expandedConns };
         newExpanded[c.id] = true;
         toFetch = true;
@@ -92,6 +92,7 @@ export function useConnections(apiUrl) {
 
   const handleDisconnect = async (id, activeId, setActiveId) => {
     const conn = connections.find(c => c.id === id);
+    if (conn?.db_type === 'http' || conn?.db_type === 'grpc') return;
     const base = conn?.db_type === 'redis' ? '/api/redis' : '/api/connections';
     await fetch(`${apiUrl}${base}/${id}/disconnect`, { method: 'POST' });
     if (activeId === id) setActiveId(null);
@@ -100,6 +101,7 @@ export function useConnections(apiUrl) {
 
   const handleReconnect = async (id) => {
     const conn = connections.find(c => c.id === id);
+    if (conn?.db_type === 'http' || conn?.db_type === 'grpc') return;
     const url = conn?.db_type === 'redis' ? `${apiUrl}/api/redis/reconnect` : `${apiUrl}/api/connections/connect`;
     await fetch(url, {
       method: 'POST',
@@ -113,7 +115,10 @@ export function useConnections(apiUrl) {
     if (!window.confirm('Are you sure you want to delete this connection?')) return;
     try {
       const conn = connections.find(c => c.id === id);
-      const base = conn?.db_type === 'redis' ? '/api/redis' : '/api/connections';
+      const base =
+        conn?.db_type === 'redis' ? '/api/redis'
+          : (conn?.db_type === 'http' ? '/api/http'
+            : (conn?.db_type === 'grpc' ? '/api/grpc' : '/api/connections'));
       const res = await fetch(`${apiUrl}${base}/${id}`, { method: 'DELETE' });
       const data = await res.json();
       if (data.success) {
@@ -135,7 +140,10 @@ export function useConnections(apiUrl) {
       setDraggedConnId(null); setDragOverFolderId(null); return;
     }
     try {
-      const base = conn.db_type === 'redis' ? '/api/redis' : '/api/connections';
+      const base =
+        conn.db_type === 'redis' ? '/api/redis'
+          : (conn.db_type === 'http' ? '/api/http'
+            : (conn.db_type === 'grpc' ? '/api/grpc' : '/api/connections'));
       await fetch(`${apiUrl}${base}/${draggedConnId}/folder`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
