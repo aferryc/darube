@@ -20,7 +20,7 @@ const EMPTY_TAB = (n, id, type = "query") => ({
   targetTable: null,
 });
 
-export function useTabs(apiUrl, activeId, setLoading) {
+export function useTabs(apiUrl, activeId, setLoading, settings) {
   const [tabs, setTabs] = useState([EMPTY_TAB(1, "tab-1")]);
   const [activeTabId, setActiveTabId] = useState("tab-1");
   const [editingTabId, setEditingTabId] = useState(null);
@@ -169,6 +169,18 @@ export function useTabs(apiUrl, activeId, setLoading) {
     const finalQuery = (queryToRun || activeTab.query).trim();
     const targetCId = connectionId || activeTab.connectionId || activeId;
     if (!targetCId || !finalQuery) return;
+
+    // Global maximum lines for query/command (SQL + Redis).
+    const maxLines = settings?.max_lines_query || 0;
+    if (maxLines > 0) {
+      const lineCount = finalQuery.split(/\r?\n/).length;
+      if (lineCount > maxLines) {
+        alert(
+          `This tab is limited to ${maxLines} lines. Current query has ${lineCount} lines.`,
+        );
+        return;
+      }
+    }
     setLoading(true);
     const t0 = performance.now();
 

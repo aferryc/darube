@@ -108,7 +108,7 @@ function KvTable({ rows, onChange }) {
   );
 }
 
-export function GrpcRequestPane({ apiUrl, connectionId, activeTab, updateActiveTab, loading, setLoading }) {
+export function GrpcRequestPane({ apiUrl, connectionId, activeTab, updateActiveTab, loading, setLoading, settings }) {
   const parsed = useMemo(() => parseState(activeTab.query), [activeTab.id]);
   const [state, setState] = useState(() => {
     const base = parsed || defaultState();
@@ -209,14 +209,37 @@ export function GrpcRequestPane({ apiUrl, connectionId, activeTab, updateActiveT
 
   const invoke = async () => {
     if (!connectionId) return;
+
+    // Enforce maximum body lines if configured.
+    const maxBodyLines = settings?.max_lines_body || 0;
+    if (maxBodyLines > 0) {
+      const bodyText = state.request || '';
+      const lineCount = bodyText.split(/\r?\n/).length;
+      if (lineCount > maxBodyLines) {
+        alert(`Request body is limited to ${maxBodyLines} lines. Current body has ${lineCount} lines.`);
+        return;
+      }
+    }
+
     setLoading(true);
     try {
+      let timeoutMs = state.timeout_ms;
+      const globalApi = settings?.global_api_timeout_ms;
+      if (typeof globalApi === 'number') {
+        if (globalApi > 0 && (timeoutMs <= 0 || timeoutMs > globalApi)) {
+          timeoutMs = globalApi;
+        }
+        if (globalApi < 0) {
+          timeoutMs = 0;
+        }
+      }
+
       const payload = {
         service: state.service,
         method: state.method,
         request: state.request,
         headers: state.headers,
-        timeout_ms: state.timeout_ms,
+        timeout_ms: timeoutMs,
       };
       if (state.auth_mode && state.auth_mode !== 'inherit') {
         payload.auth = {

@@ -44,4 +44,35 @@
   --text-base: 14px;
   --text-lg: 16px;
   --text-xl: 18px;
+
+  /* app-wide overrides (optional, set from settings) */
+  --app-font-family: 'Plus Jakarta Sans', system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  --app-font-size: 13px;
+  --app-font-color: var(--text-main);
+}
+
+/* Theme variants (basic presets) */
+[data-theme="dark"] {
+  /* uses defaults above */
+}
+
+[data-theme="ocean"] {
+  --bg-dark: #021826;
+  --bg-sidebar: #031d32;
+  --bg-card: #052743;
+  --bg-editor: #031c30;
+  --accent: #38bdf8;
+  --accent-hover: #0ea5e9;
+}
+
+[data-theme="high-contrast"] {
+  --bg-dark: #050816;
+  --bg-sidebar: #000000;
+  --bg-card: #111827;
+  --bg-editor: #020617;
+  --text-main: #ffffff;
+  --text-muted: #e5e7eb;
+  --border: #4b5563;
+  --accent: #f97316;
+  --accent-hover: #ea580c;
 }

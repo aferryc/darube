@@ -109,7 +109,7 @@ function KvTable({ rows, onChange }) {
   );
 }
 
-export function HttpRequestPane({ apiUrl, connectionId, activeTab, updateActiveTab, loading, setLoading }) {
+export function HttpRequestPane({ apiUrl, connectionId, activeTab, updateActiveTab, loading, setLoading, settings }) {
   const parsed = useMemo(() => parseState(activeTab.query), [activeTab.id]); // only reset on tab change
   const [state, setState] = useState(() => {
     const base = parsed || defaultState();
@@ -141,15 +141,38 @@ export function HttpRequestPane({ apiUrl, connectionId, activeTab, updateActiveT
 
   const send = async () => {
     if (!connectionId) return;
+
+    // Enforce maximum body lines if configured.
+    const maxBodyLines = settings?.max_lines_body || 0;
+    if (maxBodyLines > 0 && state.body && state.body.type !== 'none') {
+      const bodyText = state.body.text || '';
+      const lineCount = bodyText.split(/\r?\n/).length;
+      if (lineCount > maxBodyLines) {
+        alert(`Request body is limited to ${maxBodyLines} lines. Current body has ${lineCount} lines.`);
+        return;
+      }
+    }
+
     setLoading(true);
     try {
+      let timeoutMs = state.timeout_ms;
+      const globalApi = settings?.global_api_timeout_ms;
+      if (typeof globalApi === 'number') {
+        if (globalApi > 0 && (timeoutMs <= 0 || timeoutMs > globalApi)) {
+          timeoutMs = globalApi;
+        }
+        if (globalApi < 0) {
+          timeoutMs = 0;
+        }
+      }
+
       const payload = {
         method: state.method,
         url: state.url,
         query_params: state.query_params,
         headers: state.headers,
         body: state.body,
-        timeout_ms: state.timeout_ms,
+        timeout_ms: timeoutMs,
       };
       if (state.auth_mode && state.auth_mode !== 'inherit') {
         payload.auth = {

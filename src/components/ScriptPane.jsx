@@ -5,7 +5,7 @@ import iconQuestion from '../assets/question.svg';
 import { ScriptAutocomplete } from './ScriptAutocomplete';
 import { ScriptHelpModal } from './ScriptHelpModal';
 
-export function ScriptPane({ apiUrl, activeTab, updateActiveTab, loading, setLoading, connections, onEditorContextMenu }) {
+export function ScriptPane({ apiUrl, activeTab, updateActiveTab, loading, setLoading, connections, onEditorContextMenu, settings }) {
   const output = activeTab.results;
   const [showHelp, setShowHelp] = useState(false);
 
@@ -27,13 +27,34 @@ export function ScriptPane({ apiUrl, activeTab, updateActiveTab, loading, setLoa
   const run = async () => {
     const script = activeTab.query || '';
     if (!script.trim()) return;
+
+    const maxLines = settings?.max_lines_script || 0;
+    if (maxLines > 0) {
+      const lineCount = script.split(/\r?\n/).length;
+      if (lineCount > maxLines) {
+        alert(`Script is limited to ${maxLines} lines. Current script has ${lineCount} lines.`);
+        return;
+      }
+    }
+
+    // Base timeout: 15s, clamped by global script timeout if configured.
+    let timeoutMs = 15000;
+    const globalScript = settings?.global_script_timeout_ms;
+    if (typeof globalScript === 'number') {
+      if (globalScript > 0 && (timeoutMs <= 0 || timeoutMs > globalScript)) {
+        timeoutMs = globalScript;
+      }
+      if (globalScript < 0) {
+        timeoutMs = 0; // let backend interpret 0 with "no limit" rules
+      }
+    }
     setLoading(true);
     const t0 = performance.now();
     try {
       const res = await fetch(`${apiUrl}/api/scripts/run`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ script, timeout_ms: 15000 }),
+        body: JSON.stringify({ script, timeout_ms: timeoutMs }),
       });
       const text = await res.text();
       let data;

@@ -153,20 +153,48 @@ export function HelpModal({ show, onClose }) {
   if (!show) return null;
   return (
     <div className="modal-overlay">
-      <div className="modal-content w-500">
-        <h3>Help & Information</h3>
-        <div className="help-content">
-          <p>Welcome to <strong>Darube</strong>!</p><br />
-          <p>Using the Sidebar you can add new Database Connections, stop operations, edit, or remove them.</p><br />
-          <p><strong>Running Queries</strong></p>
-          <ul className="help-list">
-            <li>Type your SQL queries in the Editor.</li>
-            <li>Press <code>CMD/CTRL + ENTER</code> to run the query, or use the Run Query button.</li>
-            <li>You can highlight a specific part of your code to selectively run only that query piece!</li>
-          </ul>
+      <div className="modal-content w-500 help-modal">
+        <div className="help-header">
+          <div>
+            <h3>Help & Information</h3>
+            <div className="help-subtitle">Quick guide to get started and move faster.</div>
+          </div>
+          <button type="button" className="btn-icon close-btn" onClick={onClose} aria-label="Close help">✕</button>
         </div>
+
+        <div className="help-sections">
+          <div className="help-card">
+            <div className="help-card-title">Getting Started</div>
+            <ul className="help-list">
+              <li>Use the Sidebar to add new connections and switch between them.</li>
+              <li>Right-click a connection to edit, refresh, or remove it.</li>
+              <li>Create folders to keep related connections grouped.</li>
+            </ul>
+          </div>
+
+          <div className="help-card">
+            <div className="help-card-title">Running Queries</div>
+            <ul className="help-list">
+              <li>Type your SQL in the Editor, then run the query.</li>
+              <li>Select a portion of SQL to run only that selection.</li>
+              <li>Results and execution plans appear on the right panel.</li>
+            </ul>
+          </div>
+
+            <div className="help-card">
+              <div className="help-card-title">Shortcuts</div>
+              <div className="help-shortcuts">
+                <div className="help-shortcut">
+                  <span>Run Query</span>
+                  <span className="help-kbd">CMD/CTRL</span>
+                  <span className="help-kbd">ENTER</span>
+                </div>
+              </div>
+            </div>
+        </div>
+
         <div className="modal-footer">
-          <button type="button" onClick={onClose}>OK</button>
+          <button type="button" className="secondary" onClick={onClose}>Close</button>
         </div>
       </div>
     </div>

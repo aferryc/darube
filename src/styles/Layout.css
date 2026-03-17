@@ -28,7 +28,7 @@
   opacity: 0.9;
   /* Place after macOS traffic lights. Keep in sync with `trafficLightPosition` in main.js. */
   margin-left: 78px;
-  margin-top: 16px;
+  margin-top: 8px;
 }
 
 .platform-mac .app-topbar-title {
@@ -37,7 +37,7 @@
   opacity: 0.9;
   /* Place after macOS traffic lights. Keep in sync with `trafficLightPosition` in main.js. */
   margin-left: 3px;
-  margin-top: 18px;
+  margin-top: 10px;
   font-family: var(--font-family);
   font-size: 14px;
 }
