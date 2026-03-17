@@ -1,26 +1,25 @@
 # Darube
 
-Darube is a one-stop developer tool built with Electron + React, backed by a local Go “engine”. It provides a unified interface for database management, Redis, API testing, and scripting.
+Darube is a one-stop backend tool for developers. It brings SQL databases, NoSQL stores, API testing, and scripting into a single desktop app so you can connect, query, automate, and inspect data without juggling multiple tools.
 
-## Features
+## Highlights
 
-- Connections: create/save/edit/delete, connect/disconnect/reconnect
-- Databases: PostgreSQL, MySQL/MariaDB, SQL Server, SQLite, Oracle
-- Redis: connect, run commands, export results, edit values from the results pane
-- API testing: HTTP / gRPC
-- Query tabs: multiple tabs, autosaved workspace, tabs are bound to connections
-- Scripting: run JavaScript (goja) to query across multiple connections
-- Schema explorer: databases/schemas/tables/columns, view DML, view indexes
-- Export: CSV / JSON / Excel for SQL results; JSON/CSV/Excel for Redis results
-- Folders: organize connections (SQL and Redis) via drag and drop
+- SQL connections: PostgreSQL, MySQL/MariaDB, SQL Server, SQLite, Oracle
+- NoSQL connections: Redis, MongoDB, Cassandra, Elasticsearch, OpenSearch
+- API testing: HTTP and gRPC
+- Scripting: run JavaScript (goja) across multiple connections
+- Query tabs: multiple tabs per connection with autosaved workspace
+- Schema explorer: databases, schemas, tables, columns, indexes
+- Export: CSV / JSON / Excel for SQL and Redis results
+- Folders: organize connections with drag-and-drop
 
-## Architecture
+## How It Works
 
-- Electron main process spawns the Go engine on a free local port and passes it to the UI as `?enginePort=...`.
-- The Go engine is a local HTTP server that:
-  - persists connection configs and folders as JSON files
-  - keeps active connections in memory
-  - runs SQL queries/mutations, Redis commands, HTTP requests, gRPC requests
+Darube is an Electron + React app backed by a local Go engine.
+
+- The Electron main process starts the Go engine on a free local port.
+- The UI talks to the engine over HTTP using that port.
+- The engine persists connection configs and workspace state locally.
 
 ## Development
 
@@ -47,11 +46,11 @@ make test
 
 ### Notes
 
-- If you change Go engine code, you must rebuild the engine binary and restart the Electron app:
+- If you change Go engine code, rebuild the engine binary and restart the Electron app:
   - `make build-engine`
 - Workspace persistence:
-  - Query tabs are autosaved via the engine to `workspace.json`.
-  - Tabs are bound to a specific connection. Clicking another connection switches to its existing tab(s); if none exist, Darube prompts to create a new tab or rebind the current tab.
+  - Query tabs are autosaved to `workspace.json`.
+  - Tabs are bound to a connection. Clicking another connection switches to its existing tabs; if none exist, Darube prompts to create a new tab or rebind the current tab.
 
 ## Scripting
 
