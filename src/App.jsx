@@ -17,6 +17,7 @@ import {
   HelpModal,
   ConnectionSwitchModal,
 } from "./components/Modals";
+import { SettingsModal } from "./components/SettingsModal";
 
 import { useConnections } from "./hooks/useConnections";
 import { useTabs } from "./hooks/useTabs";
@@ -59,6 +60,15 @@ const EMPTY_FORM = {
 
   // Redis extras
   is_cluster: false,
+
+  // Teleport (tsh) options
+  teleport_enabled: false,
+  teleport_profile_id: "",
+  teleport_db_service: "",
+  // Legacy inline fields (backwards compat when no profile_id)
+  teleport_cluster: "",
+  teleport_user: "",
+  teleport_profile: "",
 };
 
 function App() {
@@ -67,6 +77,7 @@ function App() {
   const [loading, setLoading] = useState(false);
   const [showModal, setShowModal] = useState(false);
   const [showHelpModal, setShowHelpModal] = useState(false);
+  const [showSettingsModal, setShowSettingsModal] = useState(false);
   const [switchPrompt, setSwitchPrompt] = useState(null); // { targetId, forceExpand }
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [layoutDirection, setLayoutDirection] = useState("vertical");
@@ -101,6 +112,18 @@ function App() {
     return () => clearInterval(interval);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  // ── Load layout from settings on mount ───────────────────────────────────
+  useEffect(() => {
+    fetch(`${apiUrl}/api/settings`)
+      .then((r) => r.json())
+      .then((data) => {
+        if (data.layout_direction && (data.layout_direction === "vertical" || data.layout_direction === "horizontal")) {
+          setLayoutDirection(data.layout_direction);
+        }
+      })
+      .catch(() => {});
+  }, [apiUrl]);
 
   // ── Close context menu on global click ───────────────────────────────────
   useEffect(() => {
@@ -204,6 +227,12 @@ function App() {
       client_cert_path: c.client_cert_path || "",
       client_key_path: c.client_key_path || "",
       folder_id: c.folder_id || "",
+      teleport_enabled: !!c.teleport_enabled,
+      teleport_profile_id: c.teleport_profile_id || "",
+      teleport_db_service: c.teleport_db_service || "",
+      teleport_cluster: c.teleport_cluster || "",
+      teleport_user: c.teleport_user || "",
+      teleport_profile: c.teleport_profile || "",
     });
     setShowModal(true);
   };
@@ -297,7 +326,10 @@ function App() {
       const res = await fetch(url, {
         method,
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ ...formData, port: portInt }),
+        body: JSON.stringify({
+          ...formData,
+          port: portInt,
+        }),
       });
 
       if (!res.ok) {
@@ -398,7 +430,10 @@ function App() {
       const res = await fetch(url, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ ...formData, port: portInt }),
+        body: JSON.stringify({
+          ...formData,
+          port: portInt,
+        }),
       });
 
       if (!res.ok) {
@@ -940,22 +975,11 @@ function App() {
             );
           }}
           onShowHelp={() => setShowHelpModal(true)}
+          onShowSettings={() => setShowSettingsModal(true)}
           handleConnectionContextMenu={ctxMenu.handleConnectionContextMenu}
           handleTableContextMenu={ctxMenu.handleTableContextMenu}
           toggleTree={connections.toggleTree}
         />
-
-        <button
-          className="swap-layout-btn"
-          onClick={() =>
-            setLayoutDirection((d) =>
-              d === "horizontal" ? "vertical" : "horizontal",
-            )
-          }
-          title="Swap Layout"
-        >
-          ⇋ {layoutDirection === "horizontal" ? "Horizontal" : "Vertical"}
-        </button>
 
         <div className="main-area">
           <QueryTabs
@@ -1132,6 +1156,7 @@ function App() {
         formData={formData}
         setFormData={setFormData}
         folders={connections.folders}
+        apiUrl={apiUrl}
         onSubmit={handleConnectNew}
         onTest={handleTestConnection}
         onClose={() => setShowModal(false)}
@@ -1167,6 +1192,13 @@ function App() {
           await connections.handleConnectionClick(targetId, true);
         }}
         onCancel={() => setSwitchPrompt(null)}
+      />
+      <SettingsModal
+        show={showSettingsModal}
+        onClose={() => setShowSettingsModal(false)}
+        apiUrl={apiUrl}
+        layoutDirection={layoutDirection}
+        onLayoutChange={setLayoutDirection}
       />
       <HelpModal show={showHelpModal} onClose={() => setShowHelpModal(false)} />
       <ContextMenu

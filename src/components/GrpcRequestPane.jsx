@@ -120,6 +120,7 @@ export function GrpcRequestPane({ apiUrl, connectionId, activeTab, updateActiveT
   });
 
   const [services, setServices] = useState([]);
+  const [methods, setMethods] = useState([]);
   const [reflectError, setReflectError] = useState('');
 
   useEffect(() => {
@@ -130,6 +131,7 @@ export function GrpcRequestPane({ apiUrl, connectionId, activeTab, updateActiveT
       headers: normalizeKV(base?.headers),
     });
     setServices([]);
+    setMethods([]);
     setReflectError('');
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [activeTab.id]);
@@ -158,6 +160,52 @@ export function GrpcRequestPane({ apiUrl, connectionId, activeTab, updateActiveT
     reflect();
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [connectionId]);
+
+  const fetchMethods = async () => {
+    if (!connectionId || !state.service) return;
+    try {
+      const res = await fetch(`${apiUrl}/api/grpc/${connectionId}/methods`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ service: state.service }),
+      });
+      const data = await res.json();
+      if (data.success) setMethods(data.methods || []);
+      else setMethods([]);
+    } catch {
+      setMethods([]);
+    }
+  };
+
+  useEffect(() => {
+    if (!connectionId || !state.service) {
+      setMethods([]);
+      return;
+    }
+    fetchMethods();
+  }, [connectionId, state.service]);
+
+  const fetchSampleRequest = async () => {
+    if (!connectionId || !state.service || !state.method) return;
+    setLoading(true);
+    try {
+      const res = await fetch(`${apiUrl}/api/grpc/${connectionId}/sample-request`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ service: state.service, method: state.method }),
+      });
+      const data = await res.json();
+      if (data.success && data.sample != null) {
+        save({ ...state, request: data.sample });
+      } else {
+        alert(data.error || 'Failed to generate sample request');
+      }
+    } catch (err) {
+      alert('Error: ' + err.message);
+    } finally {
+      setLoading(false);
+    }
+  };
 
   const invoke = async () => {
     if (!connectionId) return;
@@ -202,19 +250,37 @@ export function GrpcRequestPane({ apiUrl, connectionId, activeTab, updateActiveT
         <select
           className="api-method"
           value={state.service}
-          onChange={(e) => save({ ...state, service: e.target.value })}
+          onChange={(e) => save({ ...state, service: e.target.value, method: '' })}
           disabled={loading}
         >
           <option value="">(service)</option>
           {services.map(s => <option key={s} value={s}>{s}</option>)}
         </select>
-        <input
-          className="api-url"
-          value={state.method}
-          onChange={(e) => save({ ...state, method: e.target.value })}
-          placeholder="Method (unary) e.g. GetUser"
-          disabled={loading}
-        />
+        {methods.length > 0 ? (
+          <>
+            <input
+              className="api-url"
+              list="grpc-method-datalist"
+              value={state.method}
+              onChange={(e) => save({ ...state, method: e.target.value })}
+              placeholder="Method (unary) e.g. GetUser"
+              disabled={loading}
+              autoComplete="off"
+            />
+            <datalist id="grpc-method-datalist">
+              {methods.map(m => <option key={m} value={m} />)}
+            </datalist>
+          </>
+        ) : (
+          <input
+            className="api-url"
+            value={state.method}
+            onChange={(e) => save({ ...state, method: e.target.value })}
+            placeholder={state.service ? "Loading methods…" : "Select service first"}
+            disabled={loading || !state.service}
+            autoComplete="off"
+          />
+        )}
         <button className="secondary" onClick={reflect} disabled={!connectionId || loading} style={{ height: 34, padding: '0 12px', borderRadius: 10 }}>
           Refresh
         </button>
@@ -290,15 +356,32 @@ export function GrpcRequestPane({ apiUrl, connectionId, activeTab, updateActiveT
           )}
 
           {activeSub === 'request' && (
-            <div style={{ minHeight: 280 }}>
-              <MonacoCodeEditor
-                value={state.request}
-                onChange={(text) => save({ ...state, request: text })}
-                language="json"
-                editorRole="grpc-request"
-                className="query-editor-container"
-                placeholder="{\n  \n}"
-              />
+            <div style={{ display: 'flex', flexDirection: 'column', flex: 1, minHeight: 280 }}>
+              <div style={{ display: 'flex', gap: 8, marginBottom: 10, alignItems: 'center' }}>
+                <button
+                  type="button"
+                  className="secondary"
+                  onClick={fetchSampleRequest}
+                  disabled={loading || !connectionId || !state.service || !state.method}
+                  style={{ height: 30, padding: '0 12px', borderRadius: 8 }}
+                >
+                  Sample request
+                </button>
+                <span className="form-help-text" style={{ margin: 0 }}>
+                  Generates a sample JSON body from the selected method via reflection.
+                </span>
+              </div>
+              <div style={{ flex: 1, minHeight: 240 }}>
+                <MonacoCodeEditor
+                  value={state.request}
+                  onChange={(text) => save({ ...state, request: text })}
+                  language="json"
+                  editorRole="grpc-request"
+                  className="query-editor-container"
+                  style={{ height: '100%' }}
+                  placeholder="{\n  \n}"
+                />
+              </div>
             </div>
           )}
         </div>

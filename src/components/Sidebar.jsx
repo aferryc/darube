@@ -10,6 +10,7 @@ import iconOracle from '../assets/oracle.svg';
 import iconPencil from '../assets/pencil.svg';
 import iconPostgres from '../assets/postgre.svg';
 import iconQuestion from '../assets/question.svg';
+import iconSettings from '../assets/settings.svg';
 import iconRefresh from '../assets/rotate-right.svg';
 import iconRedis from '../assets/redis.svg';
 import iconSqlite from '../assets/sqlite.svg';
@@ -164,7 +165,7 @@ export function Sidebar({
   handleConnectionContextMenu, handleTableContextMenu, toggleTree,
   handleCreateFolder, handleSubmitNewFolder,
   handleRenameFolder, handleSubmitRenameFolder, handleDeleteFolder,
-  handleDropOnFolder, onNewConnection, onShowHelp, onNewScript,
+  handleDropOnFolder, onNewConnection, onShowHelp, onNewScript, onShowSettings,
 }) {
   const connItemProps = {
     activeId, expandedConns, expandedTree, metadata, expandedFolders,
@@ -183,6 +184,11 @@ export function Sidebar({
             <div className="sidebar-icon-logo" title="Connections">
               <img src={logoApp} alt="Darube" style={{ height: '22px', opacity: 0.85 }} />
             </div>
+            {onShowSettings && (
+              <div className="sidebar-icon-conn" onClick={onShowSettings} title="Settings" style={{ cursor: 'pointer' }}>
+                <img src={iconSettings} className="icon icon-light" alt="Settings" />
+              </div>
+            )}
             {connections.map(c => (
               <div key={c.id} className={`sidebar-icon-conn ${activeId === c.id ? 'active' : ''}`} onClick={() => handleConnectionClick(c.id)} title={`${c.connection_name} (${c.db_type}) — ${c.status}`}>
                 <span className={`status-dot ${c.status}`} />
@@ -205,6 +211,7 @@ export function Sidebar({
               </div>
               <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
                 <button onClick={onShowHelp} className="btn-icon" style={{ padding: '5px' }} title="Help"><img src={iconQuestion} className="icon-sm icon-light" alt="Help" /></button>
+                <button onClick={onShowSettings} className="btn-icon" style={{ padding: '5px' }} title="Settings"><img src={iconSettings} className="icon-sm icon-light" alt="Settings" /></button>
                 <button onClick={onNewConnection} className="btn-icon" style={{ padding: '5px' }}><img src={iconAdd} className="icon-sm icon-light" alt="Add" /></button>
               </div>
             </div>

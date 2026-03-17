@@ -29,6 +29,7 @@ function Wrapper() {
       formData={formData}
       setFormData={setFormData}
       folders={[]}
+      apiUrl="http://localhost:3000"
       onSubmit={(e) => e.preventDefault()}
       onTest={(e) => e.preventDefault()}
       onClose={() => {}}
@@ -61,6 +62,7 @@ function WrapperWithFolders() {
       formData={formData}
       setFormData={setFormData}
       folders={[{ id: 'f1', name: 'Ops' }]}
+      apiUrl="http://localhost:3000"
       onSubmit={(e) => e.preventDefault()}
       onTest={(e) => e.preventDefault()}
       onClose={() => {}}
