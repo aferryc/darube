@@ -40,6 +40,12 @@ make build-engine
 # Package the full app (engine + Vite + electron-builder)
 make build
 
+# Package for Windows
+make build-win
+
+# Package for Linux
+make build-linux
+
 # Run tests
 make test
 ```

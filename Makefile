@@ -1,7 +1,7 @@
 # Darube Makefile
 # ─────────────────────────────────────────────────────────────────────────────
 
-.PHONY: help dev test test-fe test-be build-engine build electron-build
+.PHONY: help dev test test-fe test-be build-engine build-engine-win build-engine-linux build build-win build-linux electron-build
 
 # Default target
 help:
@@ -14,6 +14,8 @@ help:
 	@echo "  make test           Run both FE and BE tests"
 	@echo "  make build-engine   Compile the Go engine binary"
 	@echo "  make build          Compile engine + package full Electron app"
+	@echo "  make build-win      Build Windows package (engine + Electron)"
+	@echo "  make build-linux    Build Linux package (engine + Electron)"
 	@echo "  make clean          Remove compiled artifacts"
 	@echo ""
 
@@ -36,6 +38,14 @@ test: test-fe test-be
 build-engine:
 	cd engine && CGO_ENABLED=0 go build -o bin/engine .
 
+# ── Build the Go engine binary for Windows ───────────────────────────────────
+build-engine-win:
+	cd engine && CGO_ENABLED=0 GOOS=windows GOARCH=amd64 go build -o bin/engine.exe .
+
+# ── Build the Go engine binary for Linux ─────────────────────────────────────
+build-engine-linux:
+	cd engine && CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -o bin/engine .
+
 # ── Full production build (engine → Vite → electron-builder) ─────────────────
 # electron-builder copies engine/engine via extraResources so it must exist first.
 build: build-engine
@@ -43,6 +53,14 @@ build: build-engine
 	@echo ""
 	@echo "  ✅ App packaged to ./release/"
 	@echo ""
+
+# ── Windows build ────────────────────────────────────────────────────────────
+build-win: build-engine-win
+	npm run build -- --win
+
+# ── Linux build ──────────────────────────────────────────────────────────────
+build-linux: build-engine-linux
+	npm run build -- --linux
 
 # ── Remove compiled artifacts ────────────────────────────────────────────────
 clean:

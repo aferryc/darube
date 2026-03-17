@@ -29,5 +29,7 @@ workspace.json
 settings.json
 
 bin
+engine/bin/engine
+engine/bin/engine.exe
 release
 coverage

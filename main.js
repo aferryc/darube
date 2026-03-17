@@ -82,12 +82,13 @@ async function startEngine() {
       throw new Error("Port allocation failed (returned null/undefined)");
     }
 
+    const engineBinary = process.platform === "win32" ? "engine.exe" : "engine";
     // Decide where the binary is based on dev or prod
-    let enginePath = path.join(__dirname, "engine", "bin", "engine");
+    let enginePath = path.join(__dirname, "engine", "bin", engineBinary);
 
     // In production the binary is bundled via extraResources
     if (app.isPackaged) {
-      enginePath = path.join(process.resourcesPath, "engine", "bin", "engine");
+      enginePath = path.join(process.resourcesPath, "engine", "bin", engineBinary);
     }
 
     logMessage(`Engine binary path: ${enginePath}`);

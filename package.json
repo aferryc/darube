@@ -72,8 +72,12 @@
     ],
     "extraResources": [
       {
-        "from": "engine/bin/engine",
-        "to": "engine/bin/engine"
+        "from": "engine/bin",
+        "to": "engine/bin",
+        "filter": [
+          "engine",
+          "engine.exe"
+        ]
       }
     ]
   }
