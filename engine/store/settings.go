@@ -19,9 +19,31 @@ type TeleportProfile struct {
 	Profile string `json:"profile"`
 }
 
-// Settings holds app-wide settings including layout and Teleport profiles.
+// Settings holds app-wide settings including layout, timeouts, limits, theming, and Teleport profiles.
 type Settings struct {
-	LayoutDirection  string           `json:"layout_direction,omitempty"`
+	LayoutDirection string            `json:"layout_direction,omitempty"`
+
+	// Global timeouts (milliseconds). Zero means "use feature defaults".
+	// Negative means "no limit" (wait forever) where supported.
+	GlobalScriptTimeoutMs int `json:"global_script_timeout_ms,omitempty"`
+	GlobalQueryTimeoutMs  int `json:"global_query_timeout_ms,omitempty"`
+	GlobalAPITimeoutMs    int `json:"global_api_timeout_ms,omitempty"`
+
+	// Maximum editor lines. Zero means "no limit".
+	MaxLinesQuery  int `json:"max_lines_query,omitempty"`
+	MaxLinesScript int `json:"max_lines_script,omitempty"`
+	MaxLinesBody   int `json:"max_lines_body,omitempty"`
+
+	// Theme + typography.
+	ThemeVariant  string `json:"theme_variant,omitempty"`   // e.g. "dark", "ocean", "high-contrast"
+	UIThemeCustom string `json:"ui_theme_custom,omitempty"` // reserved for advanced JSON/custom overrides
+	UIFontFamily  string `json:"ui_font_family,omitempty"`
+	UIFontSize    int    `json:"ui_font_size,omitempty"`   // px
+	UIFontColor   string `json:"ui_font_color,omitempty"`  // CSS color (e.g. #e6edf6)
+	UITextPrimary string `json:"ui_text_primary,omitempty"` // CSS color for primary text
+	UITextMuted   string `json:"ui_text_muted,omitempty"`   // CSS color for muted text
+	UITextAccent  string `json:"ui_text_accent,omitempty"`  // CSS color for accent text
+
 	TeleportProfiles []TeleportProfile `json:"teleport_profiles,omitempty"`
 }
 
@@ -31,7 +53,8 @@ func LoadSettings() (Settings, error) {
 	defer fileMu.Unlock()
 
 	s := Settings{
-		LayoutDirection:  "vertical",
+		LayoutDirection: "vertical",
+		// Other fields default to zero-values (no limits / engine defaults).
 		TeleportProfiles: []TeleportProfile{},
 	}
 

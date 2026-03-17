@@ -273,11 +273,26 @@ func HTTPRequestHandler(w http.ResponseWriter, r *http.Request) {
 		httpReq.Header.Set(k, v)
 	}
 
+	// Base timeout: per-request override or 30s default.
 	timeout := 30 * time.Second
 	if req.TimeoutMs > 0 {
 		timeout = time.Duration(req.TimeoutMs) * time.Millisecond
 	}
-	client := &http.Client{Timeout: timeout}
+	// Apply global API timeout maximum / no-limit policy.
+	settings, _ := store.LoadSettings()
+	if settings.GlobalAPITimeoutMs > 0 {
+		max := time.Duration(settings.GlobalAPITimeoutMs) * time.Millisecond
+		if timeout <= 0 || timeout > max {
+			timeout = max
+		}
+	}
+	var client *http.Client
+	if settings.GlobalAPITimeoutMs < 0 {
+		// No timeout at client level; rely on server/connection behavior.
+		client = &http.Client{}
+	} else {
+		client = &http.Client{Timeout: timeout}
+	}
 
 	t0 := time.Now()
 	resp, err := client.Do(httpReq)

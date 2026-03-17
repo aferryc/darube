@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"engine/script"
+	"engine/store"
 )
 
 type ScriptRunRequest struct {
@@ -40,12 +41,34 @@ func RunScriptHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	timeout := 15 * time.Second
+	// Apply global script timeout policy.
+	settings, _ := store.LoadSettings()
+	baseTimeout := time.Duration(0)
 	if req.TimeoutMS > 0 {
-		timeout = time.Duration(req.TimeoutMS) * time.Millisecond
+		baseTimeout = time.Duration(req.TimeoutMS) * time.Millisecond
+	} else {
+		baseTimeout = 15 * time.Second
+	}
+	// Clamp to global maximum if configured and positive.
+	if settings.GlobalScriptTimeoutMs > 0 {
+		max := time.Duration(settings.GlobalScriptTimeoutMs) * time.Millisecond
+		if baseTimeout <= 0 || baseTimeout > max {
+			baseTimeout = max
+		}
 	}
 
-	ctx, cancel := context.WithTimeout(r.Context(), timeout)
+	var ctx context.Context
+	var cancel context.CancelFunc
+	// Negative global timeout means "no limit" – use request context directly.
+	if settings.GlobalScriptTimeoutMs < 0 {
+		ctx = r.Context()
+		cancel = func() {}
+	} else {
+		if baseTimeout <= 0 {
+			baseTimeout = 15 * time.Second
+		}
+		ctx, cancel = context.WithTimeout(r.Context(), baseTimeout)
+	}
 	defer cancel()
 
 	engine := script.NewDefault()

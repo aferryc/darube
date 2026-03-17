@@ -17,9 +17,23 @@ func GetSettingsHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	sendJSONResponse(w, map[string]interface{}{
-		"success":           true,
-		"layout_direction":  s.LayoutDirection,
-		"teleport_profiles": s.TeleportProfiles,
+		"success":                 true,
+		"layout_direction":        s.LayoutDirection,
+		"teleport_profiles":       s.TeleportProfiles,
+		"global_script_timeout_ms": s.GlobalScriptTimeoutMs,
+		"global_query_timeout_ms":  s.GlobalQueryTimeoutMs,
+		"global_api_timeout_ms":    s.GlobalAPITimeoutMs,
+		"max_lines_query":          s.MaxLinesQuery,
+		"max_lines_script":         s.MaxLinesScript,
+		"max_lines_body":           s.MaxLinesBody,
+		"theme_variant":            s.ThemeVariant,
+		"ui_theme_custom":          s.UIThemeCustom,
+		"ui_font_family":           s.UIFontFamily,
+		"ui_font_size":             s.UIFontSize,
+		"ui_font_color":            s.UIFontColor,
+		"ui_text_primary":          s.UITextPrimary,
+		"ui_text_muted":            s.UITextMuted,
+		"ui_text_accent":           s.UITextAccent,
 	}, http.StatusOK)
 }
 
@@ -44,6 +58,103 @@ func PutSettingsHandler(w http.ResponseWriter, r *http.Request) {
 			if str == "vertical" || str == "horizontal" {
 				s.LayoutDirection = str
 			}
+		}
+	}
+
+	// Global timeouts – accept numbers; negative means "no limit".
+	if v, ok := patch["global_script_timeout_ms"]; ok {
+		switch n := v.(type) {
+		case float64:
+			s.GlobalScriptTimeoutMs = int(n)
+		case int:
+			s.GlobalScriptTimeoutMs = n
+		}
+	}
+	if v, ok := patch["global_query_timeout_ms"]; ok {
+		switch n := v.(type) {
+		case float64:
+			s.GlobalQueryTimeoutMs = int(n)
+		case int:
+			s.GlobalQueryTimeoutMs = n
+		}
+	}
+	if v, ok := patch["global_api_timeout_ms"]; ok {
+		switch n := v.(type) {
+		case float64:
+			s.GlobalAPITimeoutMs = int(n)
+		case int:
+			s.GlobalAPITimeoutMs = n
+		}
+	}
+
+	// Max lines.
+	if v, ok := patch["max_lines_query"]; ok {
+		switch n := v.(type) {
+		case float64:
+			s.MaxLinesQuery = int(n)
+		case int:
+			s.MaxLinesQuery = n
+		}
+	}
+	if v, ok := patch["max_lines_script"]; ok {
+		switch n := v.(type) {
+		case float64:
+			s.MaxLinesScript = int(n)
+		case int:
+			s.MaxLinesScript = n
+		}
+	}
+	if v, ok := patch["max_lines_body"]; ok {
+		switch n := v.(type) {
+		case float64:
+			s.MaxLinesBody = int(n)
+		case int:
+			s.MaxLinesBody = n
+		}
+	}
+
+	// Theme + typography.
+	if v, ok := patch["theme_variant"]; ok {
+		if str, ok := v.(string); ok {
+			s.ThemeVariant = strings.TrimSpace(str)
+		}
+	}
+	if v, ok := patch["ui_theme_custom"]; ok {
+		if str, ok := v.(string); ok {
+			s.UIThemeCustom = str
+		}
+	}
+	if v, ok := patch["ui_font_family"]; ok {
+		if str, ok := v.(string); ok {
+			s.UIFontFamily = strings.TrimSpace(str)
+		}
+	}
+	if v, ok := patch["ui_font_size"]; ok {
+		switch n := v.(type) {
+		case float64:
+			s.UIFontSize = int(n)
+		case int:
+			s.UIFontSize = n
+		}
+	}
+	if v, ok := patch["ui_font_color"]; ok {
+		if str, ok := v.(string); ok {
+			s.UIFontColor = strings.TrimSpace(str)
+		}
+	}
+	if v, ok := patch["ui_text_primary"]; ok {
+		if str, ok := v.(string); ok {
+			s.UITextPrimary = strings.TrimSpace(str)
+		}
+	}
+	if v, ok := patch["ui_text_muted"]; ok {
+		if str, ok := v.(string); ok {
+			s.UITextMuted = strings.TrimSpace(str)
+		}
+	}
+	if v, ok := patch["ui_text_accent"]; ok {
+		if str, ok := v.(string); ok {
+			s.UITextAccent = strings.TrimSpace(str)
 		}
 	}
 	if err := store.SaveSettings(s); err != nil {

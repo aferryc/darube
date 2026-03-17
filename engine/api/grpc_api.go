@@ -343,11 +343,31 @@ func GRPCInvokeHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// Base timeout: per-request override or 30s default.
 	timeout := 30 * time.Second
 	if req.TimeoutMs > 0 {
 		timeout = time.Duration(req.TimeoutMs) * time.Millisecond
 	}
-	ctx, cancel := context.WithTimeout(r.Context(), timeout)
+	settings, _ := store.LoadSettings()
+	if settings.GlobalAPITimeoutMs > 0 {
+		max := time.Duration(settings.GlobalAPITimeoutMs) * time.Millisecond
+		if timeout <= 0 || timeout > max {
+			timeout = max
+		}
+	}
+
+	var ctx context.Context
+	var cancel context.CancelFunc
+	if settings.GlobalAPITimeoutMs < 0 {
+		// No extra timeout wrapper; rely on upstream context.
+		ctx = r.Context()
+		cancel = func() {}
+	} else {
+		if timeout <= 0 {
+			timeout = 30 * time.Second
+		}
+		ctx, cancel = context.WithTimeout(r.Context(), timeout)
+	}
 	defer cancel()
 
 	conn, err := dialGRPC(ctx, *cfg)

@@ -81,12 +81,13 @@ function App() {
   const [switchPrompt, setSwitchPrompt] = useState(null); // { targetId, forceExpand }
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [layoutDirection, setLayoutDirection] = useState("vertical");
+  const [settings, setSettings] = useState(null);
   const [formData, setFormData] = useState(EMPTY_FORM);
   const [editingId, setEditingId] = useState(null);
 
   // ── Hooks ─────────────────────────────────────────────────────────────────
   const connections = useConnections(apiUrl);
-  const tabs = useTabs(apiUrl, activeId, setLoading);
+  const tabs = useTabs(apiUrl, activeId, setLoading, settings);
   const grid = useEditableGrid(
     apiUrl,
     activeId,
@@ -113,17 +114,79 @@ function App() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // ── Load layout from settings on mount ───────────────────────────────────
+  // ── Load settings on mount ───────────────────────────────────────────────
   useEffect(() => {
     fetch(`${apiUrl}/api/settings`)
       .then((r) => r.json())
       .then((data) => {
-        if (data.layout_direction && (data.layout_direction === "vertical" || data.layout_direction === "horizontal")) {
-          setLayoutDirection(data.layout_direction);
+        if (data && data.success !== false) {
+          if (data.layout_direction && (data.layout_direction === "vertical" || data.layout_direction === "horizontal")) {
+            setLayoutDirection(data.layout_direction);
+          }
+          setSettings({
+            layout_direction: data.layout_direction || "vertical",
+            teleport_profiles: data.teleport_profiles || [],
+            global_script_timeout_ms: data.global_script_timeout_ms ?? 0,
+            global_query_timeout_ms: data.global_query_timeout_ms ?? 0,
+            global_api_timeout_ms: data.global_api_timeout_ms ?? 0,
+            max_lines_query: data.max_lines_query ?? 0,
+            max_lines_script: data.max_lines_script ?? 0,
+            max_lines_body: data.max_lines_body ?? 0,
+            theme_variant: data.theme_variant || "",
+            ui_theme_custom: data.ui_theme_custom || "",
+            ui_font_family: data.ui_font_family || "",
+            ui_font_size: data.ui_font_size || 0,
+            ui_font_color: data.ui_font_color || "",
+            ui_text_primary: data.ui_text_primary || "",
+            ui_text_muted: data.ui_text_muted || "",
+            ui_text_accent: data.ui_text_accent || "",
+          });
         }
       })
       .catch(() => {});
   }, [apiUrl]);
+
+  // ── Apply theme / typography to document ─────────────────────────────────
+  useEffect(() => {
+    if (!settings) return;
+    const root = document.documentElement;
+    if (settings.ui_font_family) {
+      root.style.setProperty("--app-font-family", settings.ui_font_family);
+    } else {
+      root.style.removeProperty("--app-font-family");
+    }
+    if (settings.ui_font_size && Number(settings.ui_font_size) > 0) {
+      root.style.setProperty("--app-font-size", `${settings.ui_font_size}px`);
+    } else {
+      root.style.removeProperty("--app-font-size");
+    }
+    if (settings.ui_font_color) {
+      root.style.setProperty("--app-font-color", settings.ui_font_color);
+    } else {
+      root.style.removeProperty("--app-font-color");
+    }
+    const primary = settings.ui_text_primary || settings.ui_font_color || "";
+    if (primary) {
+      root.style.setProperty("--text-main", primary);
+    } else {
+      root.style.removeProperty("--text-main");
+    }
+    if (settings.ui_text_muted) {
+      root.style.setProperty("--text-muted", settings.ui_text_muted);
+    } else {
+      root.style.removeProperty("--text-muted");
+    }
+    if (settings.ui_text_accent) {
+      root.style.setProperty("--accent", settings.ui_text_accent);
+    } else {
+      root.style.removeProperty("--accent");
+    }
+    if (settings.theme_variant) {
+      root.setAttribute("data-theme", settings.theme_variant);
+    } else {
+      root.removeAttribute("data-theme");
+    }
+  }, [settings]);
 
   // ── Close context menu on global click ───────────────────────────────────
   useEffect(() => {
@@ -1198,7 +1261,14 @@ function App() {
         onClose={() => setShowSettingsModal(false)}
         apiUrl={apiUrl}
         layoutDirection={layoutDirection}
-        onLayoutChange={setLayoutDirection}
+        onLayoutChange={(dir) => {
+          setLayoutDirection(dir);
+          setSettings((prev) => (prev ? { ...prev, layout_direction: dir } : prev));
+        }}
+        settings={settings}
+        onSettingsChange={(next) => {
+          setSettings((prev) => ({ ...(prev || {}), ...next }));
+        }}
       />
       <HelpModal show={showHelpModal} onClose={() => setShowHelpModal(false)} />
       <ContextMenu

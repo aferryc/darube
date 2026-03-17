@@ -108,5 +108,6 @@ img.icon-lg {
 .btn-icon {
   display: flex;
   align-items: center;
-  gap: 6px;
+  gap: 8px;
+  line-height: 1;
 }
