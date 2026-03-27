@@ -3,8 +3,7 @@
 Darube is a one-stop backend tool for developers. It brings SQL databases, NoSQL stores, API testing, and scripting into a single desktop app so you can connect, query, automate, and inspect data without juggling multiple tools.
 
 ## Highlights
-
-<img width="1197" height="794" alt="image" src="https://github.com/user-attachments/assets/3000fc9b-4739-41d8-991d-9d515b19826f" />
+<img width="1197" height="794" alt="image" src="https://github.com/user-attachments/assets/a5c59aba-0db5-4ff7-b35a-818fb359927c" />
 
 - SQL connections: PostgreSQL, MySQL/MariaDB, SQL Server, SQLite, Oracle
 - NoSQL connections: Redis, MongoDB, Cassandra, Elasticsearch, OpenSearch
