@@ -239,12 +239,69 @@ func GRPCSampleRequestHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	inMsg := dynamicpb.NewMessage(m.Input())
-	sampleBytes, err := (protojson.MarshalOptions{Multiline: true, Indent: "  ", EmitUnpopulated: true}).Marshal(inMsg)
+	populateSampleMessage(inMsg.ProtoReflect())
+	sampleBytes, err := (protojson.MarshalOptions{
+		Multiline:        true,
+		Indent:           "  ",
+		EmitUnpopulated:  true,
+		EmitDefaultValues: true,
+	}).Marshal(inMsg)
 	if err != nil {
 		sendJSONResponse(w, map[string]interface{}{"success": false, "error": err.Error()}, http.StatusOK)
 		return
 	}
 	sendJSONResponse(w, map[string]interface{}{"success": true, "sample": string(sampleBytes)}, http.StatusOK)
+}
+
+// populateSampleMessage sets zero-value placeholders for all known fields so
+// generated samples include presence-based optional fields as well.
+func populateSampleMessage(msg protoreflect.Message) {
+	if !msg.IsValid() {
+		return
+	}
+	fields := msg.Descriptor().Fields()
+	for i := 0; i < fields.Len(); i++ {
+		fd := fields.Get(i)
+		if fd.IsList() || fd.IsMap() {
+			continue
+		}
+		msg.Set(fd, sampleValueForField(fd))
+	}
+}
+
+func sampleValueForField(fd protoreflect.FieldDescriptor) protoreflect.Value {
+	switch fd.Kind() {
+	case protoreflect.BoolKind:
+		return protoreflect.ValueOfBool(false)
+	case protoreflect.EnumKind:
+		ev := fd.Enum().Values()
+		if ev.Len() > 0 {
+			return protoreflect.ValueOfEnum(ev.Get(0).Number())
+		}
+		return protoreflect.ValueOfEnum(0)
+	case protoreflect.Int32Kind, protoreflect.Sint32Kind, protoreflect.Sfixed32Kind:
+		return protoreflect.ValueOfInt32(0)
+	case protoreflect.Uint32Kind, protoreflect.Fixed32Kind:
+		return protoreflect.ValueOfUint32(0)
+	case protoreflect.Int64Kind, protoreflect.Sint64Kind, protoreflect.Sfixed64Kind:
+		return protoreflect.ValueOfInt64(0)
+	case protoreflect.Uint64Kind, protoreflect.Fixed64Kind:
+		return protoreflect.ValueOfUint64(0)
+	case protoreflect.FloatKind:
+		return protoreflect.ValueOfFloat32(0)
+	case protoreflect.DoubleKind:
+		return protoreflect.ValueOfFloat64(0)
+	case protoreflect.StringKind:
+		return protoreflect.ValueOfString("")
+	case protoreflect.BytesKind:
+		return protoreflect.ValueOfBytes([]byte{})
+	case protoreflect.MessageKind, protoreflect.GroupKind:
+		sub := dynamicpb.NewMessage(fd.Message())
+		populateSampleMessage(sub.ProtoReflect())
+		return protoreflect.ValueOfMessage(sub.ProtoReflect())
+	default:
+		return protoreflect.Value{}
+	}
 }
 
 // GRPCReflectHandler handles POST /api/grpc/{id}/reflect

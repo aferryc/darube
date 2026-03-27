@@ -41,7 +41,7 @@ export function MonacoCodeEditor({
     lineNumbers: 'off',
     glyphMargin: false,
     folding: false,
-    lineDecorationsWidth: 0,
+    lineDecorationsWidth: 10,
     lineNumbersMinChars: 0,
     renderLineHighlight: 'none',
     overviewRulerLanes: 0,
