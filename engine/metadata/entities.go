@@ -15,7 +15,13 @@ func GetEntities(dbType string, db *sql.DB) ([]SchemaInfo, error) {
 				  FROM information_schema.tables t
 				  LEFT JOIN information_schema.columns c 
 				  ON t.table_schema = c.table_schema AND t.table_name = c.table_name
-				  WHERE t.table_schema NOT IN ('information_schema', 'pg_catalog')
+				  WHERE t.table_schema NOT IN ('information_schema', 'pg_catalog', 'pg_toast')
+				    AND t.table_schema NOT LIKE 'pg_temp%'
+				    AND t.table_schema NOT LIKE 'pg_toast_temp%'
+				    AND t.table_schema NOT LIKE '_timescaledb_%'
+				    AND t.table_schema NOT IN ('timescaledb_experimental', 'timescaledb_information')
+				    AND t.table_schema NOT LIKE 'citus%'
+				    AND t.table_schema NOT IN ('pglogical', 'repack', 'cron', 'partman')
 				  ORDER BY t.table_schema, t.table_name, c.ordinal_position`
 		rows, err := db.Query(query)
 		if err != nil {
@@ -61,7 +67,14 @@ func GetEntities(dbType string, db *sql.DB) ([]SchemaInfo, error) {
 		}
 
 		// Get indexes
-		idxQuery := `SELECT schemaname, tablename, indexname FROM pg_indexes WHERE schemaname NOT IN ('information_schema', 'pg_catalog')`
+		idxQuery := `SELECT schemaname, tablename, indexname FROM pg_indexes
+			WHERE schemaname NOT IN ('information_schema', 'pg_catalog', 'pg_toast')
+			  AND schemaname NOT LIKE 'pg_temp%'
+			  AND schemaname NOT LIKE 'pg_toast_temp%'
+			  AND schemaname NOT LIKE '_timescaledb_%'
+			  AND schemaname NOT IN ('timescaledb_experimental', 'timescaledb_information')
+			  AND schemaname NOT LIKE 'citus%'
+			  AND schemaname NOT IN ('pglogical', 'repack', 'cron', 'partman')`
 		if idxRows, err := db.Query(idxQuery); err == nil {
 			for idxRows.Next() {
 				var sName, tName, iName string

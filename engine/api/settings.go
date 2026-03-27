@@ -17,15 +17,16 @@ func GetSettingsHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	sendJSONResponse(w, map[string]interface{}{
-		"success":                 true,
-		"layout_direction":        s.LayoutDirection,
-		"teleport_profiles":       s.TeleportProfiles,
+		"success":                  true,
+		"layout_direction":         s.LayoutDirection,
+		"teleport_profiles":        s.TeleportProfiles,
 		"global_script_timeout_ms": s.GlobalScriptTimeoutMs,
 		"global_query_timeout_ms":  s.GlobalQueryTimeoutMs,
 		"global_api_timeout_ms":    s.GlobalAPITimeoutMs,
 		"max_lines_query":          s.MaxLinesQuery,
 		"max_lines_script":         s.MaxLinesScript,
 		"max_lines_body":           s.MaxLinesBody,
+		"large_result_warn_mb":     s.LargeResultWarnMB,
 		"theme_variant":            s.ThemeVariant,
 		"ui_theme_custom":          s.UIThemeCustom,
 		"ui_font_family":           s.UIFontFamily,
@@ -110,6 +111,14 @@ func PutSettingsHandler(w http.ResponseWriter, r *http.Request) {
 			s.MaxLinesBody = int(n)
 		case int:
 			s.MaxLinesBody = n
+		}
+	}
+	if v, ok := patch["large_result_warn_mb"]; ok {
+		switch n := v.(type) {
+		case float64:
+			s.LargeResultWarnMB = int(n)
+		case int:
+			s.LargeResultWarnMB = n
 		}
 	}
 

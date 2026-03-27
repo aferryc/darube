@@ -81,6 +81,7 @@ func ConnectNewHandler(w http.ResponseWriter, r *http.Request) {
 
 	// 3. Cache connection in memory
 	store.AddActiveConnection(req.ID, conn)
+	startTableSizeEstimator(req.ID, req)
 
 	sendJSONResponse(w, CommandOutput{
 		Success: true,

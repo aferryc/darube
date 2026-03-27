@@ -25,6 +25,7 @@ import { useEditableGrid } from "./hooks/useEditableGrid";
 import { useContextMenu } from "./hooks/useContextMenu";
 import { useExport } from "./hooks/useExport";
 import { applyBoxCut, getBoxSelectionText } from "./utils/boxSelection";
+import { formatBytes } from "./utils/formatBytes";
 import logoApp from "./assets/darube.png";
 
 const params = new URLSearchParams(window.location.search);
@@ -80,8 +81,15 @@ function App() {
   const [showSettingsModal, setShowSettingsModal] = useState(false);
   const [switchPrompt, setSwitchPrompt] = useState(null); // { targetId, forceExpand }
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
+  const [sidebarWidth, setSidebarWidth] = useState(() => {
+    const raw = localStorage.getItem("darube.sidebarWidth");
+    const n = raw ? Number(raw) : NaN;
+    if (!Number.isFinite(n)) return 260;
+    return Math.max(200, Math.min(520, n));
+  });
   const [layoutDirection, setLayoutDirection] = useState("vertical");
   const [settings, setSettings] = useState(null);
+  const [tableSizeStatus, setTableSizeStatus] = useState(null);
   const [formData, setFormData] = useState(EMPTY_FORM);
   const [editingId, setEditingId] = useState(null);
 
@@ -104,6 +112,14 @@ function App() {
     tabs.updateActiveTab,
     setLoading,
   );
+  const activeConn = connections.connections.find((c) => c.id === activeId);
+  const activeTabConnId = tabs.activeTab?.connectionId || null;
+  const formatStatusTime = (value) => {
+    if (!value) return "";
+    const dt = new Date(value);
+    if (Number.isNaN(dt.getTime())) return "";
+    return dt.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
+  };
 
   // ── Initial polling ───────────────────────────────────────────────────────
   useEffect(() => {
@@ -113,6 +129,14 @@ function App() {
     return () => clearInterval(interval);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  useEffect(() => {
+    try {
+      localStorage.setItem("darube.sidebarWidth", String(sidebarWidth));
+    } catch {
+      // ignore persistence failures (private mode, etc.)
+    }
+  }, [sidebarWidth]);
 
   // ── Load settings on mount ───────────────────────────────────────────────
   useEffect(() => {
@@ -132,6 +156,7 @@ function App() {
             max_lines_query: data.max_lines_query ?? 0,
             max_lines_script: data.max_lines_script ?? 0,
             max_lines_body: data.max_lines_body ?? 0,
+            large_result_warn_mb: data.large_result_warn_mb ?? 50,
             theme_variant: data.theme_variant || "",
             ui_theme_custom: data.ui_theme_custom || "",
             ui_font_family: data.ui_font_family || "",
@@ -536,12 +561,121 @@ function App() {
     setSwitchPrompt({ targetId: id, forceExpand: !!forceExpand });
   };
 
-  const activeTabConnId = tabs.activeTab?.connectionId || null;
+  const buildTableSizeRows = (sizes) =>
+    (sizes || []).map((s) => [
+      s.schema || "",
+      s.table || "",
+      formatBytes(Number(s.size_bytes) || 0),
+    ]);
+
+  const openTableSizeCache = async (connId, connName) => {
+    const res = await fetch(`${apiUrl}/api/connections/${connId}/table-sizes`);
+    const data = await res.json();
+    if (!data.success) {
+      alert("Error: " + data.error);
+      return;
+    }
+    const rows = buildTableSizeRows(data.sizes || []);
+    tabs.addSpecialTab(
+      `Table Sizes${connName ? `: ${connName}` : ""}`,
+      "table_sizes",
+      {
+        results: {
+          success: true,
+          columns: ["Schema", "Table", "Size"],
+          rows,
+          meta: { updated_at: data.updated_at || "" },
+        },
+      },
+      connId,
+    );
+  };
+
+  const refreshTableSizeCache = async (connId) => {
+    const res = await fetch(`${apiUrl}/api/connections/${connId}/table-sizes/refresh`, {
+      method: "POST",
+    });
+    const data = await res.json();
+    if (!data.success) {
+      alert("Error: " + data.error);
+      return;
+    }
+    const rows = buildTableSizeRows(data.sizes || []);
+    tabs.updateActiveTab({
+      results: {
+        success: true,
+        columns: ["Schema", "Table", "Size"],
+        rows,
+        meta: { updated_at: data.updated_at || "" },
+      },
+    });
+  };
+
   useEffect(() => {
     if (activeTabConnId && activeTabConnId !== activeId) {
       setActiveId(activeTabConnId);
     }
   }, [activeTabConnId, activeId]);
+
+  useEffect(() => {
+    let cancelled = false;
+    let timer = null;
+
+    const shouldTrack =
+      activeId &&
+      activeConn &&
+      !["redis", "http", "grpc"].includes(activeConn.db_type);
+
+    if (!shouldTrack) {
+      setTableSizeStatus(null);
+      return () => {};
+    }
+
+    setTableSizeStatus({ status: "checking" });
+
+    const poll = async () => {
+      if (cancelled || !activeId) return;
+      try {
+        const res = await fetch(`${apiUrl}/api/connections/${activeId}/table-sizes/status`);
+        let data = {};
+        try {
+          data = await res.json();
+        } catch {
+          data = {};
+        }
+
+        if (cancelled) return;
+
+        if (!res.ok || !data.success) {
+          const message =
+            data.error ||
+            (!res.ok ? `Status check failed (HTTP ${res.status})` : "Status check failed");
+          setTableSizeStatus({ status: "checking", error: message });
+          timer = setTimeout(poll, 3000);
+          return;
+        }
+
+        const inferred =
+          data.status || (typeof data.count === "number" && data.count > 0 ? "ready" : "idle");
+        setTableSizeStatus({ ...data, status: inferred });
+        if (!["ready", "unsupported", "error"].includes(inferred)) {
+          timer = setTimeout(poll, 3000);
+        }
+      } catch (err) {
+        if (!cancelled) {
+          setTableSizeStatus({ status: "checking", error: "Status check failed" });
+          timer = setTimeout(poll, 3000);
+        }
+      }
+    };
+
+    poll();
+
+    return () => {
+      cancelled = true;
+      if (timer) clearTimeout(timer);
+    };
+  }, [activeId, activeConn?.db_type, apiUrl]);
 
   // ── Context menu action dispatcher ───────────────────────────────────────
   const handleMenuAction = async (action) => {
@@ -571,6 +705,9 @@ function App() {
             break;
           case "rename":
             handleEditConnection(conn, { stopPropagation: () => {} });
+            break;
+          case "view_table_sizes":
+            await openTableSizeCache(conn.id, conn.connection_name);
             break;
         }
       },
@@ -1006,7 +1143,6 @@ function App() {
   };
 
   // ── Connection info for status bar ───────────────────────────────────────
-  const activeConn = connections.connections.find((c) => c.id === activeId);
 
   // ── Render ────────────────────────────────────────────────────────────────
   return (
@@ -1019,7 +1155,10 @@ function App() {
       <div className="app-body">
         <Sidebar
           {...connections}
+          tableSizes={connections.tableSizes}
           activeId={activeId}
+          sidebarWidth={sidebarWidth}
+          setSidebarWidth={setSidebarWidth}
           sidebarCollapsed={sidebarCollapsed}
           setSidebarCollapsed={setSidebarCollapsed}
           handleConnectionClick={handleConnectionClick}
@@ -1131,10 +1270,62 @@ function App() {
 
                 {/* Status information bar (placed above the gutter) */}
                 <div className="editor-status-bar">
-                  <div>
-                    {activeConn
-                      ? `${activeConn.connection_name} (${activeConn.db_type})`
-                      : "No connection selected"}
+                  <div className="status-left">
+                    <span>
+                      {activeConn
+                        ? `${activeConn.connection_name} (${activeConn.db_type})`
+                        : "No connection selected"}
+                    </span>
+                    {(() => {
+                      const meta = [];
+                      if (typeof tableSizeStatus?.count === "number") {
+                        meta.push(`${tableSizeStatus.count.toLocaleString()} tables`);
+                      }
+                      const updatedLabel = formatStatusTime(tableSizeStatus?.updated_at);
+                      if (updatedLabel) {
+                        meta.push(`updated ${updatedLabel}`);
+                      }
+                      if (tableSizeStatus?.error) {
+                        meta.push(tableSizeStatus.error);
+                      }
+                      const metaText = meta.length ? ` • ${meta.join(" • ")}` : "";
+
+                      if (tableSizeStatus?.status === "running") {
+                        return (
+                          <span className="status-pill warning">
+                            Table size cache: estimating{metaText}
+                            <span className="status-progress warning" />
+                          </span>
+                        );
+                      }
+                      if (tableSizeStatus?.status === "ready") {
+                        return <span className="status-pill">Table size cache: ready{metaText}</span>;
+                      }
+                      if (tableSizeStatus?.status === "unsupported") {
+                        return (
+                          <span className="status-pill muted">Table size cache: unsupported</span>
+                        );
+                      }
+                      if (tableSizeStatus?.status === "error") {
+                        return <span className="status-pill danger">Table size cache: failed</span>;
+                      }
+                      if (tableSizeStatus?.status === "checking") {
+                        return (
+                          <span
+                            className={`status-pill ${tableSizeStatus?.error ? "danger" : "muted"}`}
+                          >
+                            Table size cache: checking{metaText}
+                            <span className={`status-progress ${tableSizeStatus?.error ? "danger" : "info"}`} />
+                          </span>
+                        );
+                      }
+                      if (tableSizeStatus?.status === "idle") {
+                        return (
+                          <span className="status-pill muted">Table size cache: idle</span>
+                        );
+                      }
+                      return null;
+                    })()}
                   </div>
                   <div>
                     {tabs.activeTab.results?.durationMs !== undefined
@@ -1174,6 +1365,7 @@ function App() {
                   handleRowContextMenu={handleResultsContextMenu}
                   handleExportClick={exp.handleExportClick}
                   computeWorkingData={grid.computeWorkingData}
+                  onRefreshTableSizes={refreshTableSizeCache}
                 />
               )}
               </Split>
@@ -1207,6 +1399,7 @@ function App() {
               handleRowContextMenu={handleResultsContextMenu}
               handleExportClick={exp.handleExportClick}
               computeWorkingData={grid.computeWorkingData}
+              onRefreshTableSizes={refreshTableSizeCache}
             />
           )}
         </div>

@@ -21,7 +21,8 @@ type TeleportProfile struct {
 
 // Settings holds app-wide settings including layout, timeouts, limits, theming, and Teleport profiles.
 type Settings struct {
-	LayoutDirection string            `json:"layout_direction,omitempty"`
+	LayoutDirection   string `json:"layout_direction,omitempty"`
+	LargeResultWarnMB int    `json:"large_result_warn_mb"`
 
 	// Global timeouts (milliseconds). Zero means "use feature defaults".
 	// Negative means "no limit" (wait forever) where supported.
@@ -38,8 +39,8 @@ type Settings struct {
 	ThemeVariant  string `json:"theme_variant,omitempty"`   // e.g. "dark", "ocean", "high-contrast"
 	UIThemeCustom string `json:"ui_theme_custom,omitempty"` // reserved for advanced JSON/custom overrides
 	UIFontFamily  string `json:"ui_font_family,omitempty"`
-	UIFontSize    int    `json:"ui_font_size,omitempty"`   // px
-	UIFontColor   string `json:"ui_font_color,omitempty"`  // CSS color (e.g. #e6edf6)
+	UIFontSize    int    `json:"ui_font_size,omitempty"`    // px
+	UIFontColor   string `json:"ui_font_color,omitempty"`   // CSS color (e.g. #e6edf6)
 	UITextPrimary string `json:"ui_text_primary,omitempty"` // CSS color for primary text
 	UITextMuted   string `json:"ui_text_muted,omitempty"`   // CSS color for muted text
 	UITextAccent  string `json:"ui_text_accent,omitempty"`  // CSS color for accent text
@@ -53,7 +54,8 @@ func LoadSettings() (Settings, error) {
 	defer fileMu.Unlock()
 
 	s := Settings{
-		LayoutDirection: "vertical",
+		LayoutDirection:   "vertical",
+		LargeResultWarnMB: 50,
 		// Other fields default to zero-values (no limits / engine defaults).
 		TeleportProfiles: []TeleportProfile{},
 	}

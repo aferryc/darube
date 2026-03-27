@@ -43,7 +43,7 @@ func UpdateConnectionHandler(w http.ResponseWriter, r *http.Request) {
 		sendJSONResponse(w, CommandOutput{
 			Success: false,
 			Error:   err.Error(),
-		}, http.StatusOK) 
+		}, http.StatusOK)
 		return
 	}
 
@@ -60,6 +60,7 @@ func UpdateConnectionHandler(w http.ResponseWriter, r *http.Request) {
 
 	// 3. Cache connection in memory (replacing old one)
 	store.AddActiveConnection(req.ID, conn)
+	startTableSizeEstimator(req.ID, req)
 
 	sendJSONResponse(w, CommandOutput{
 		Success: true,

@@ -38,6 +38,73 @@
   flex-shrink: 0;
 }
 
+.status-left {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.status-pill {
+  font-size: 9px;
+  padding: 2px 6px;
+  border-radius: 999px;
+  border: 1px solid var(--border);
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.status-pill.warning {
+  border-color: rgba(255, 193, 7, 0.5);
+  color: #fbbf24;
+}
+
+.status-pill.danger {
+  border-color: rgba(239, 68, 68, 0.5);
+  color: #f87171;
+}
+
+.status-pill.muted {
+  color: var(--text-muted);
+}
+
+.status-progress {
+  --status-progress-color: #60a5fa;
+  display: inline-block;
+  width: 26px;
+  height: 4px;
+  margin-left: 6px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.08);
+  position: relative;
+  overflow: hidden;
+  vertical-align: middle;
+}
+
+.status-progress::after {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: -40%;
+  width: 40%;
+  height: 100%;
+  background: var(--status-progress-color);
+  animation: statusProgress 1.1s ease-in-out infinite;
+}
+
+.status-progress.warning {
+  --status-progress-color: #fbbf24;
+}
+
+.status-progress.info {
+  --status-progress-color: #60a5fa;
+}
+
+@keyframes statusProgress {
+  from { left: -40%; }
+  to { left: 100%; }
+}
+
 /* PrismJS Syntax Highlighting */
 .token.keyword { color: #c678dd; font-weight: bold; }
 .token.string { color: #98c379; }

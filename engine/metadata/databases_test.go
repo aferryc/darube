@@ -14,24 +14,24 @@ func TestGetDatabases_SQLVariants(t *testing.T) {
 	}
 	defer db.Close()
 
-	mock.ExpectQuery(regexp.QuoteMeta("SELECT datname FROM pg_database WHERE datistemplate = false")).
+	mock.ExpectQuery("SELECT datname FROM pg_database").
 		WillReturnRows(sqlmock.NewRows([]string{"datname"}).AddRow("app"))
 	out, err := GetDatabases("postgres", db)
 	if err != nil || len(out) != 1 || out[0].Name != "app" {
 		t.Fatalf("postgres: out=%v err=%v", out, err)
 	}
 
-	mock.ExpectQuery(regexp.QuoteMeta("SHOW DATABASES")).
-		WillReturnRows(sqlmock.NewRows([]string{"Database"}).AddRow("mysql"))
+	mock.ExpectQuery(regexp.QuoteMeta("SELECT schema_name")).
+		WillReturnRows(sqlmock.NewRows([]string{"schema_name"}).AddRow("app"))
 	out, err = GetDatabases("mysql", db)
-	if err != nil || len(out) != 1 || out[0].Name != "mysql" {
+	if err != nil || len(out) != 1 || out[0].Name != "app" {
 		t.Fatalf("mysql: out=%v err=%v", out, err)
 	}
 
-	mock.ExpectQuery(regexp.QuoteMeta("SELECT name FROM sys.databases")).
-		WillReturnRows(sqlmock.NewRows([]string{"name"}).AddRow("master"))
+	mock.ExpectQuery(regexp.QuoteMeta("SELECT name")).
+		WillReturnRows(sqlmock.NewRows([]string{"name"}).AddRow("app"))
 	out, err = GetDatabases("sqlserver", db)
-	if err != nil || len(out) != 1 || out[0].Name != "master" {
+	if err != nil || len(out) != 1 || out[0].Name != "app" {
 		t.Fatalf("sqlserver: out=%v err=%v", out, err)
 	}
 

@@ -11,6 +11,7 @@ export function SettingsModal({ show, onClose, apiUrl, layoutDirection, onLayout
     max_lines_query: 0,
     max_lines_script: 0,
     max_lines_body: 0,
+    large_result_warn_mb: 50,
     theme_variant: '',
     ui_theme_custom: '',
     ui_font_family: '',
@@ -48,6 +49,7 @@ export function SettingsModal({ show, onClose, apiUrl, layoutDirection, onLayout
             max_lines_query: data.max_lines_query ?? 0,
             max_lines_script: data.max_lines_script ?? 0,
             max_lines_body: data.max_lines_body ?? 0,
+            large_result_warn_mb: data.large_result_warn_mb ?? 50,
             theme_variant: data.theme_variant || '',
             ui_theme_custom: data.ui_theme_custom || '',
             ui_font_family: data.ui_font_family || '',
@@ -101,6 +103,7 @@ export function SettingsModal({ show, onClose, apiUrl, layoutDirection, onLayout
         max_lines_query: Number(settings.max_lines_query) || 0,
         max_lines_script: Number(settings.max_lines_script) || 0,
         max_lines_body: Number(settings.max_lines_body) || 0,
+        large_result_warn_mb: Number(settings.large_result_warn_mb) || 0,
       };
       const res = await fetch(`${apiUrl}/api/settings`, {
         method: 'PUT',
@@ -351,6 +354,22 @@ export function SettingsModal({ show, onClose, apiUrl, layoutDirection, onLayout
                 </div>
               </div>
               <div className="settings-card-note">Tip: use 0 for unlimited.</div>
+            </div>
+
+            <div className="settings-card">
+              <div className="settings-card-title">Query Safety</div>
+              <div className="settings-card-body settings-fields cols-2">
+                <div className="form-group">
+                  <label>Large Result Warning (MB)</label>
+                  <input
+                    type="number"
+                    value={settings.large_result_warn_mb}
+                    onChange={e => setSettings(s => ({ ...s, large_result_warn_mb: e.target.value }))}
+                    placeholder="50"
+                  />
+                </div>
+              </div>
+              <div className="settings-card-note">Tip: set 0 to disable warnings.</div>
             </div>
 
             <div className="modal-footer settings-footer">

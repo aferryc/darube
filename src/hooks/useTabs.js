@@ -1,5 +1,6 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { getTargetTable } from "../utils/queryUtils";
+import { formatBytes } from "../utils/formatBytes";
 
 const EMPTY_TAB = (n, id, type = "query") => ({
   id,
@@ -24,6 +25,7 @@ export function useTabs(apiUrl, activeId, setLoading, settings) {
   const [tabs, setTabs] = useState([EMPTY_TAB(1, "tab-1")]);
   const [activeTabId, setActiveTabId] = useState("tab-1");
   const [editingTabId, setEditingTabId] = useState(null);
+  const activeRequestRef = useRef(null);
 
   const activeTab = tabs.find((t) => t.id === activeTabId) || tabs[0];
 
@@ -114,6 +116,51 @@ export function useTabs(apiUrl, activeId, setLoading, settings) {
     setActiveTabId(newId);
   };
 
+  const getLargeResultWarnBytes = () => {
+    const raw = settings?.large_result_warn_mb;
+    if (raw === undefined || raw === null || raw === "") {
+      return 50 * 1024 * 1024;
+    }
+    const val = Number(raw);
+    if (!Number.isFinite(val) || val <= 0) return 0;
+    return val * 1024 * 1024;
+  };
+
+  const shouldEstimateResult = (query, connectionType) => {
+    if (!query) return false;
+    if (connectionType === "redis") return false;
+    const trimmed = query.trim();
+    if (!trimmed) return false;
+    const upper = trimmed.toUpperCase();
+    if (upper.startsWith("EXPLAIN")) return false;
+    return upper.startsWith("SELECT") || upper.startsWith("WITH");
+  };
+
+  const estimateQueryResult = async (query, connectionId, connectionType, signal) => {
+    if (!shouldEstimateResult(query, connectionType)) return null;
+    try {
+      const res = await fetch(`${apiUrl}/api/connections/${connectionId}/estimate`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ query }),
+        signal,
+      });
+      if (!res.ok) return null;
+      const data = await res.json();
+      if (!data?.success || !data?.available || !data?.estimated_bytes) return null;
+      return data;
+    } catch (err) {
+      if (err?.name === "AbortError") throw err;
+      return null;
+    }
+  };
+
+  const cancelActiveRequest = () => {
+    if (activeRequestRef.current) {
+      activeRequestRef.current.abort();
+    }
+  };
+
   const getTabsForConnection = (connectionId) => {
     if (!connectionId) return [];
     return tabs.filter((t) => t.connectionId === connectionId);
@@ -181,10 +228,24 @@ export function useTabs(apiUrl, activeId, setLoading, settings) {
         return;
       }
     }
+
     setLoading(true);
     const t0 = performance.now();
+    const controller = new AbortController();
+    activeRequestRef.current = controller;
 
     try {
+      const warnBytes = getLargeResultWarnBytes();
+      if (warnBytes > 0) {
+        const estimate = await estimateQueryResult(finalQuery, targetCId, connectionType, controller.signal);
+        if (estimate?.estimated_bytes >= warnBytes) {
+          const confirmFn = typeof window !== "undefined" && window.confirm ? window.confirm : () => true;
+          const ok = confirmFn(
+            `Large result expected (~${formatBytes(estimate.estimated_bytes)}). Run anyway?`,
+          );
+          if (!ok) return;
+        }
+      }
       const isRedis = connectionType === "redis";
       const url = isRedis
         ? `${apiUrl}/api/redis/${targetCId}/query`
@@ -204,10 +265,12 @@ export function useTabs(apiUrl, activeId, setLoading, settings) {
               method: "POST",
               headers: { "Content-Type": "application/json" },
               body: JSON.stringify({ [bodyKey]: line }),
+              signal: controller.signal,
             });
             const data = await res.json();
             results.push({ command: line, ...data });
           } catch (err) {
+            if (err?.name === "AbortError") throw err;
             results.push({ command: line, success: false, error: err.message });
           }
         }
@@ -233,6 +296,7 @@ export function useTabs(apiUrl, activeId, setLoading, settings) {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ [bodyKey]: finalQuery }),
+          signal: controller.signal,
         });
         const data = await res.json();
 
@@ -260,6 +324,21 @@ export function useTabs(apiUrl, activeId, setLoading, settings) {
         });
       }
     } catch (err) {
+      if (err?.name === "AbortError") {
+        updateActiveTab({
+          lastExecutedQuery: finalQuery,
+          results: {
+            success: false,
+            error: "Query cancelled",
+            durationMs: performance.now() - t0,
+          },
+          activeView: "results",
+          currentPage: 1,
+          selectedRows: [],
+          lastSelectedIndex: null,
+        });
+        return;
+      }
       updateActiveTab({
         lastExecutedQuery: finalQuery,
         results: {
@@ -274,6 +353,7 @@ export function useTabs(apiUrl, activeId, setLoading, settings) {
       });
     } finally {
       setLoading(false);
+      if (activeRequestRef.current === controller) activeRequestRef.current = null;
     }
   };
 
@@ -283,6 +363,8 @@ export function useTabs(apiUrl, activeId, setLoading, settings) {
     if (!targetCId || !finalQuery) return;
     setLoading(true);
     const t0 = performance.now();
+    const controller = new AbortController();
+    activeRequestRef.current = controller;
     try {
       const res = await fetch(
         `${apiUrl}/api/connections/${targetCId}/explain`,
@@ -290,6 +372,7 @@ export function useTabs(apiUrl, activeId, setLoading, settings) {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ query: finalQuery }),
+          signal: controller.signal,
         },
       );
       const data = await res.json();
@@ -309,6 +392,17 @@ export function useTabs(apiUrl, activeId, setLoading, settings) {
         });
       }
     } catch (err) {
+      if (err?.name === "AbortError") {
+        updateActiveTab({
+          results: {
+            success: false,
+            error: "Query cancelled",
+            durationMs: performance.now() - t0,
+          },
+          activeView: "results",
+        });
+        return;
+      }
       updateActiveTab({
         results: {
           success: false,
@@ -319,6 +413,7 @@ export function useTabs(apiUrl, activeId, setLoading, settings) {
       });
     } finally {
       setLoading(false);
+      if (activeRequestRef.current === controller) activeRequestRef.current = null;
     }
   };
 
@@ -353,6 +448,7 @@ export function useTabs(apiUrl, activeId, setLoading, settings) {
     rebindActiveTabConnection,
     executeQuery,
     executeExplain,
+    cancelActiveRequest,
     handleKeyDown,
   };
 }

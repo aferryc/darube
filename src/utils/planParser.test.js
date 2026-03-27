@@ -22,9 +22,9 @@ describe('parsePostgresNode', () => {
     expect(result.type).toBe('Seq Scan')
     expect(result.relation).toBe('users')
     expect(result.alias).toBe('u')
-    expect(result.cost).toBe('10.50')
+    expect(result.cost).toBe(10.5)
     expect(result.rows).toBe(95) // Actual Rows takes precedence
-    expect(result.time).toBe('2.345 ms')
+    expect(result.timeMs).toBeCloseTo(2.345, 3)
     expect(result.loops).toBe(1)
     expect(result.children).toEqual([])
   })
@@ -35,9 +35,9 @@ describe('parsePostgresNode', () => {
     expect(result.type).toBe('Unknown Node')
     expect(result.relation).toBe('')
     expect(result.alias).toBe('')
-    expect(result.cost).toBe('0.00')
+    expect(result.cost).toBeNull()
     expect(result.rows).toBe(0)
-    expect(result.time).toBe('')
+    expect(result.timeMs).toBeNull()
     expect(result.loops).toBe(1)
   })
 

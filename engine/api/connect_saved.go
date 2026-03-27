@@ -68,6 +68,7 @@ func ConnectSavedHandler(w http.ResponseWriter, r *http.Request) {
 
 	// 4. Trace in memory
 	store.AddActiveConnection(req.ID, conn)
+	startTableSizeEstimator(req.ID, *config)
 
 	sendJSONResponse(w, CommandOutput{
 		Success: true,

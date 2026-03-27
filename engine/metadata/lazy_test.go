@@ -14,7 +14,7 @@ func TestGetSchemas_Variants(t *testing.T) {
 	}
 	defer db.Close()
 
-	mock.ExpectQuery(regexp.QuoteMeta("SELECT schema_name")).
+	mock.ExpectQuery("SELECT nspname AS schema_name").
 		WillReturnRows(sqlmock.NewRows([]string{"schema_name"}).AddRow("public"))
 	s, err := GetSchemas("postgres", db)
 	if err != nil || len(s) != 1 || s[0].Name != "public" {

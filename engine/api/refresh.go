@@ -47,6 +47,7 @@ func RefreshConnectionHandler(w http.ResponseWriter, r *http.Request) {
 
 	// 4. Stash back to memory
 	store.AddActiveConnection(id, conn)
+	startTableSizeEstimator(id, *config)
 
 	sendJSONResponse(w, CommandOutput{
 		Success: true,

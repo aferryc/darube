@@ -24,6 +24,7 @@ export function ContextMenu({ contextMenu, onAction }) {
             : item('🟢 Connect', 'connect')
           }
           {item('🔄 Refresh', 'refresh')}
+          {item('📏 Table Size Cache', 'view_table_sizes', { disabled: contextMenu.data.status !== 'connected' })}
           <div className="context-menu-divider" />
           <div className="context-menu-item text-danger" onClick={() => onAction('delete')} role="menuitem">🗑️ Delete Connection</div>
         </>

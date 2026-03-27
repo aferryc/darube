@@ -19,7 +19,7 @@ func TestGetEntities_Postgres(t *testing.T) {
 			AddRow("public", "users", "BASE TABLE", "id", "bigint").
 			AddRow("public", "users", "BASE TABLE", "name", "text"))
 
-	mock.ExpectQuery(regexp.QuoteMeta("SELECT schemaname, tablename, indexname FROM pg_indexes")).
+	mock.ExpectQuery("SELECT schemaname, tablename, indexname FROM pg_indexes WHERE schemaname NOT IN").
 		WillReturnRows(sqlmock.NewRows([]string{"schemaname", "tablename", "indexname"}).
 			AddRow("public", "users", "idx_users_id"))
 

@@ -1,11 +1,14 @@
 package api
 
 import (
+	"context"
 	"database/sql"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"net/http"
 	"strings"
+	"time"
 
 	"engine/store"
 )
@@ -49,6 +52,9 @@ func QueryHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	ctx, cancel := buildQueryContext(r)
+	defer cancel()
+
 	// Very basic heuristic to check if query returns rows
 	upperQuery := strings.ToUpper(trimmedQuery)
 	returnsRows := strings.HasPrefix(upperQuery, "SELECT") ||
@@ -58,15 +64,38 @@ func QueryHandler(w http.ResponseWriter, r *http.Request) {
 		strings.HasPrefix(upperQuery, "PRAGMA")
 
 	if returnsRows {
-		handleSelectQuery(w, conn, trimmedQuery)
+		handleSelectQuery(w, conn, trimmedQuery, ctx)
 	} else {
-		handleMutationQuery(w, conn, trimmedQuery)
+		handleMutationQuery(w, conn, trimmedQuery, ctx)
 	}
 }
 
-func handleMutationQuery(w http.ResponseWriter, db *sql.DB, query string) {
-	result, err := db.Exec(query)
+func buildQueryContext(r *http.Request) (context.Context, context.CancelFunc) {
+	ctx := r.Context()
+	s, err := store.LoadSettings()
 	if err != nil {
+		return ctx, func() {}
+	}
+	if s.GlobalQueryTimeoutMs < 0 {
+		return ctx, func() {}
+	}
+	if s.GlobalQueryTimeoutMs > 0 {
+		return context.WithTimeout(ctx, time.Duration(s.GlobalQueryTimeoutMs)*time.Millisecond)
+	}
+	return ctx, func() {}
+}
+
+func handleMutationQuery(w http.ResponseWriter, db *sql.DB, query string, ctx context.Context) {
+	result, err := db.ExecContext(ctx, query)
+	if err != nil {
+		if errors.Is(err, context.Canceled) {
+			sendJSONResponse(w, QueryResponse{Success: false, Error: "Query cancelled"}, http.StatusOK)
+			return
+		}
+		if errors.Is(err, context.DeadlineExceeded) {
+			sendJSONResponse(w, QueryResponse{Success: false, Error: "Query timed out"}, http.StatusOK)
+			return
+		}
 		sendJSONResponse(w, QueryResponse{
 			Success: false,
 			Error:   err.Error(),
@@ -87,9 +116,17 @@ func handleMutationQuery(w http.ResponseWriter, db *sql.DB, query string) {
 	}, http.StatusOK)
 }
 
-func handleSelectQuery(w http.ResponseWriter, db *sql.DB, query string) {
-	rows, err := db.Query(query)
+func handleSelectQuery(w http.ResponseWriter, db *sql.DB, query string, ctx context.Context) {
+	rows, err := db.QueryContext(ctx, query)
 	if err != nil {
+		if errors.Is(err, context.Canceled) {
+			sendJSONResponse(w, QueryResponse{Success: false, Error: "Query cancelled"}, http.StatusOK)
+			return
+		}
+		if errors.Is(err, context.DeadlineExceeded) {
+			sendJSONResponse(w, QueryResponse{Success: false, Error: "Query timed out"}, http.StatusOK)
+			return
+		}
 		sendJSONResponse(w, QueryResponse{
 			Success: false,
 			Error:   err.Error(),
@@ -138,7 +175,7 @@ func handleSelectQuery(w http.ResponseWriter, db *sql.DB, query string) {
 			if ok {
 				val = string(b)
 			}
-			
+
 			// Some drivers (like MySQL) return int64, others return float64, etc. JSON marshalling handles it natively.
 
 			rowData = append(rowData, val)
@@ -148,6 +185,14 @@ func handleSelectQuery(w http.ResponseWriter, db *sql.DB, query string) {
 	}
 
 	if err = rows.Err(); err != nil {
+		if errors.Is(err, context.Canceled) {
+			sendJSONResponse(w, QueryResponse{Success: false, Error: "Query cancelled"}, http.StatusOK)
+			return
+		}
+		if errors.Is(err, context.DeadlineExceeded) {
+			sendJSONResponse(w, QueryResponse{Success: false, Error: "Query timed out"}, http.StatusOK)
+			return
+		}
 		sendJSONResponse(w, QueryResponse{
 			Success: false,
 			Error:   "Error iterating rows: " + err.Error(),

@@ -4,9 +4,10 @@ import { useEffect, useMemo, useState } from 'react';
 export function QueryTabs({
   tabs, activeTabId, setActiveTabId, editingTabId, setEditingTabId, setTabs,
   addNewTab, closeTab, activeId, loading,
-  executeQuery, executeExplain,
+  executeQuery, executeExplain, cancelActiveRequest,
   activeConnType,
 }) {
+  const stopRequest = cancelActiveRequest || (() => {});
   const isRedis = activeConnType === 'redis';
   const isApi = activeConnType === 'http' || activeConnType === 'grpc';
 
@@ -142,15 +143,23 @@ export function QueryTabs({
               Explain
             </div>
           )}
-          <div
-            className="tab-action-btn"
-            onClick={() => executeQuery(null, null, isRedis ? 'redis' : undefined)}
-            title="Cmd/Ctrl + Enter"
-            style={{ opacity: loading ? 0.6 : 1, pointerEvents: loading ? 'none' : 'auto' }}
-          >
-            <img src={iconPlay} className="icon-sm icon-light" alt="Play" />
-            {loading ? 'Running...' : 'Run Query'}
-          </div>
+          {loading ? (
+            <div
+              className="tab-action-btn secondary"
+              onClick={stopRequest}
+            >
+              Stop
+            </div>
+          ) : (
+            <div
+              className="tab-action-btn"
+              onClick={() => executeQuery(null, null, isRedis ? 'redis' : undefined)}
+              title="Cmd/Ctrl + Enter"
+            >
+              <img src={iconPlay} className="icon-sm icon-light" alt="Play" />
+              Run Query
+            </div>
+          )}
         </div>
       )}
 

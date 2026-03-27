@@ -64,6 +64,10 @@ func buildMux() *http.ServeMux {
 	mux.HandleFunc("POST /api/connections/{id}/query", api.QueryHandler)
 	mux.HandleFunc("POST /api/connections/{id}/mutate", api.MutateDataHandler)
 	mux.HandleFunc("POST /api/connections/{id}/explain", api.ExplainHandler)
+	mux.HandleFunc("POST /api/connections/{id}/estimate", api.EstimateHandler)
+	mux.HandleFunc("GET /api/connections/{id}/table-sizes", api.GetTableSizesHandler)
+	mux.HandleFunc("POST /api/connections/{id}/table-sizes/refresh", api.RefreshTableSizesHandler)
+	mux.HandleFunc("GET /api/connections/{id}/table-sizes/status", api.GetTableSizesStatusHandler)
 
 	// Redis Support (Separated).
 	mux.HandleFunc("POST /api/redis/test", api.TestRedisHandler)

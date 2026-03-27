@@ -9,10 +9,12 @@ export function ResultsPane({
   handleCellDoubleClick, handleCellBlur, handleRowAction,
   handleRowClick, handleRowContextMenu,
   handleExportClick,
+  onRefreshTableSizes,
   computeWorkingData,
 }) {
   const results = activeTab.results;
   const plan = activeTab.plan;
+  const tableSizesUpdatedAt = results?.meta?.updated_at || '';
 
   const renderDataGrid = () => {
     if (!results?.success || !results.columns) return null;
@@ -146,6 +148,25 @@ export function ResultsPane({
       {activeTab.type === 'indexes' && results?.columns && (
         <div className="special-tab-header">
           <span className="special-tab-title">Table Indexes</span>
+        </div>
+      )}
+      {activeTab.type === 'table_sizes' && results?.columns && (
+        <div className="special-tab-header">
+          <span className="special-tab-title">Table Size Cache</span>
+          <div className="special-tab-actions">
+            {tableSizesUpdatedAt && (
+              <span className="special-tab-meta">
+                Updated: {new Date(tableSizesUpdatedAt).toLocaleString()}
+              </span>
+            )}
+            <button
+              className="secondary"
+              onClick={() => onRefreshTableSizes?.(activeTab.connectionId)}
+              disabled={loading}
+            >
+              Refresh
+            </button>
+          </div>
         </div>
       )}
       {activeTab.type === 'dml' && (

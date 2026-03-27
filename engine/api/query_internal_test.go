@@ -1,6 +1,7 @@
 package api
 
 import (
+	"context"
 	"encoding/json"
 	"errors"
 	"net/http"
@@ -21,7 +22,7 @@ func TestHandleSelectQuery_ErrorsAndEmptyRows(t *testing.T) {
 	// Query error -> 200 with error payload.
 	mock.ExpectQuery(regexp.QuoteMeta("SELECT 1")).WillReturnError(errors.New("bad query"))
 	rr := httptest.NewRecorder()
-	handleSelectQuery(rr, db, "SELECT 1")
+	handleSelectQuery(rr, db, "SELECT 1", context.Background())
 	if rr.Code != http.StatusOK {
 		t.Fatalf("expected 200, got %d", rr.Code)
 	}
@@ -29,7 +30,7 @@ func TestHandleSelectQuery_ErrorsAndEmptyRows(t *testing.T) {
 	// No rows -> rows should be [] (not null) and success true.
 	mock.ExpectQuery(regexp.QuoteMeta("SELECT empty")).WillReturnRows(sqlmock.NewRows([]string{"a"}))
 	rr = httptest.NewRecorder()
-	handleSelectQuery(rr, db, "SELECT empty")
+	handleSelectQuery(rr, db, "SELECT empty", context.Background())
 	if rr.Code != http.StatusOK {
 		t.Fatalf("expected 200, got %d", rr.Code)
 	}
@@ -47,7 +48,7 @@ func TestHandleSelectQuery_ErrorsAndEmptyRows(t *testing.T) {
 	rows := sqlmock.NewRows([]string{"a"}).AddRow("x").RowError(0, errors.New("row err"))
 	mock.ExpectQuery(regexp.QuoteMeta("SELECT rowerr")).WillReturnRows(rows)
 	rr = httptest.NewRecorder()
-	handleSelectQuery(rr, db, "SELECT rowerr")
+	handleSelectQuery(rr, db, "SELECT rowerr", context.Background())
 	if rr.Code != http.StatusInternalServerError {
 		t.Fatalf("expected 500, got %d body=%s", rr.Code, rr.Body.String())
 	}
@@ -66,7 +67,7 @@ func TestHandleMutationQuery_ExecError(t *testing.T) {
 
 	mock.ExpectExec(regexp.QuoteMeta("UPDATE t SET a=1")).WillReturnError(errors.New("exec failed"))
 	rr := httptest.NewRecorder()
-	handleMutationQuery(rr, db, "UPDATE t SET a=1")
+	handleMutationQuery(rr, db, "UPDATE t SET a=1", context.Background())
 	if rr.Code != http.StatusOK {
 		t.Fatalf("expected 200, got %d", rr.Code)
 	}

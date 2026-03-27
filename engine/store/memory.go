@@ -16,13 +16,16 @@ var (
 func AddActiveConnection(id string, db *sql.DB) {
 	memMu.Lock()
 	defer memMu.Unlock()
-	
+
 	// Close existing active connection if we are reopening
 	if existing, exists := activeConnections[id]; exists {
 		existing.Close()
 	}
 
 	activeConnections[id] = db
+	ClearTableSizes(id)
+	ClearDefaultSchema(id)
+	ClearTableSizeStatus(id)
 }
 
 // GetActiveConnection retrieves a connection by id. Returns nil if not found.
@@ -40,6 +43,9 @@ func RemoveActiveConnection(id string) error {
 	if existing, exists := activeConnections[id]; exists {
 		err := existing.Close()
 		delete(activeConnections, id)
+		ClearTableSizes(id)
+		ClearDefaultSchema(id)
+		ClearTableSizeStatus(id)
 		if err != nil {
 			return fmt.Errorf("failed to close database connection: %w", err)
 		}
@@ -51,17 +57,18 @@ func RemoveActiveConnection(id string) error {
 func IsConnected(id string) bool {
 	memMu.RLock()
 	defer memMu.RUnlock()
-	
+
 	// Try pinging to be completely sure it's alive (optional, but robust)
 	if db, exists := activeConnections[id]; exists {
 		if err := db.Ping(); err == nil {
 			return true
 		}
-		// If ping fails, we could potentially drop it, but we let it stay 
+		// If ping fails, we could potentially drop it, but we let it stay
 		// as 'disconnected' below or let subsequent attempts deal with it.
 	}
 	return false
 }
+
 // Redis Management (Separate from SQL)
 
 func AddRedisConnection(id string, client interface{}) {

@@ -16,10 +16,21 @@ import iconRedis from '../assets/redis.svg';
 import iconSqlite from '../assets/sqlite.svg';
 import iconSqlServer from '../assets/sql-server.svg';
 import { groupTables } from '../utils/tableUtils';
+import { formatBytes } from "../utils/formatBytes";
 
-function TableNode({ tbl, schemaKey, schemaName, cId, expandedTree, toggleTree, handleTableContextMenu }) {
+function normalizeTableKey(schema, table) {
+  const s = String(schema || "").trim().toLowerCase();
+  const t = String(table || "").trim().toLowerCase();
+  if (!s) return t;
+  return `${s}.${t}`;
+}
+
+function TableNode({ tbl, schemaKey, schemaName, cId, expandedTree, toggleTree, handleTableContextMenu, tableSizes }) {
   const tblKey = `${schemaKey}:${tbl.name}`;
   const isTblOpen = expandedTree[tblKey];
+  const connSizes = tableSizes?.[cId]?.byKey;
+  const sizeBytes = connSizes?.[normalizeTableKey(schemaName, tbl.name)];
+  const cacheLoaded = !!connSizes;
   return (
     <div key={tbl.name}>
       <div
@@ -29,7 +40,16 @@ function TableNode({ tbl, schemaKey, schemaName, cId, expandedTree, toggleTree, 
         title={tbl.indexes?.length > 0 ? 'Indexes: ' + tbl.indexes.join(', ') : 'No Indexes'}
       >
         <img src={isTblOpen ? iconAngleDown : iconAngleRight} className="icon-sm icon-light" alt="Toggle" />
-        {tbl.type === 'view' ? '👁️' : '📄'} {tbl.name}
+        <span className="metadata-table-label">{tbl.type === 'view' ? '👁️' : '📄'} {tbl.name}</span>
+        {tbl.type !== "view" && (
+          Number.isFinite(sizeBytes) && sizeBytes > 0 ? (
+            <span className="metadata-table-size" title={`Estimated size: ${sizeBytes.toLocaleString()} bytes`}>
+              {formatBytes(sizeBytes)}
+            </span>
+          ) : cacheLoaded ? (
+            <span className="metadata-table-size" title="Estimated size not available">—</span>
+          ) : null
+        )}
       </div>
       {isTblOpen && tbl.columns && (
         <div className="metadata-node table-columns">
@@ -46,7 +66,7 @@ function TableNode({ tbl, schemaKey, schemaName, cId, expandedTree, toggleTree, 
   );
 }
 
-function ConnectionItem({ c, activeId, expandedConns, expandedTree, metadata, expandedFolders,
+function ConnectionItem({ c, activeId, expandedConns, expandedTree, metadata, tableSizes, expandedFolders,
   draggedConnId, handleConnectionClick, handleEditConnection, handleDeleteConnection,
   handleDisconnect, handleReconnect, fetchConnections, handleConnectionContextMenu,
   handleTableContextMenu, toggleTree, setDraggedConnId, setDragOverFolderId, inFolder }) {
@@ -128,13 +148,13 @@ function ConnectionItem({ c, activeId, expandedConns, expandedTree, metadata, ex
                                   </div>
                                   {isGroupOpen && (
                                     <div className="metadata-node schema-tables">
-                                      {item.tables.map(tbl => <TableNode key={tbl.name} tbl={tbl} schemaKey={schemaKey} schemaName={schema.name} cId={c.id} expandedTree={expandedTree} toggleTree={toggleTree} handleTableContextMenu={handleTableContextMenu} />)}
+                                      {item.tables.map(tbl => <TableNode key={tbl.name} tbl={tbl} schemaKey={schemaKey} schemaName={schema.name} cId={c.id} expandedTree={expandedTree} toggleTree={toggleTree} handleTableContextMenu={handleTableContextMenu} tableSizes={tableSizes} />)}
                                     </div>
                                   )}
                                 </div>
                               );
                             }
-                            return <TableNode key={item.name} tbl={item} schemaKey={schemaKey} schemaName={schema.name} cId={c.id} expandedTree={expandedTree} toggleTree={toggleTree} handleTableContextMenu={handleTableContextMenu} />;
+                            return <TableNode key={item.name} tbl={item} schemaKey={schemaKey} schemaName={schema.name} cId={c.id} expandedTree={expandedTree} toggleTree={toggleTree} handleTableContextMenu={handleTableContextMenu} tableSizes={tableSizes} />;
                           })}
                         </div>
                       );
@@ -154,12 +174,13 @@ function ConnectionItem({ c, activeId, expandedConns, expandedTree, metadata, ex
 }
 
 export function Sidebar({
-  connections, folders, metadata, activeId,
+  connections, folders, metadata, tableSizes, activeId,
   expandedConns, expandedTree, expandedFolders, setExpandedFolders,
   draggedConnId, dragOverFolderId, setDraggedConnId, setDragOverFolderId,
   editingFolderId, folderEditName, setFolderEditName,
   showNewFolderInput, newFolderName, setNewFolderName,
   sidebarCollapsed, setSidebarCollapsed,
+  sidebarWidth, setSidebarWidth,
   handleConnectionClick, handleEditConnection, handleDeleteConnection,
   handleDisconnect, handleReconnect, fetchConnections,
   handleConnectionContextMenu, handleTableContextMenu, toggleTree,
@@ -167,8 +188,52 @@ export function Sidebar({
   handleRenameFolder, handleSubmitRenameFolder, handleDeleteFolder,
   handleDropOnFolder, onNewConnection, onShowHelp, onNewScript, onShowSettings,
 }) {
+  const resizeStartXRef = useRef(0);
+  const resizeStartWRef = useRef(260);
+  const resizingRef = useRef(false);
+
+  useEffect(() => {
+    const onMove = (e) => {
+      if (!resizingRef.current) return;
+      const clientX = e?.clientX ?? (e.touches && e.touches[0]?.clientX);
+      if (!Number.isFinite(clientX)) return;
+      const delta = clientX - resizeStartXRef.current;
+      const next = Math.max(200, Math.min(520, resizeStartWRef.current + delta));
+      setSidebarWidth(next);
+    };
+    const onUp = () => {
+      if (!resizingRef.current) return;
+      resizingRef.current = false;
+      document.body.classList.remove("sidebar-resizing");
+    };
+
+    window.addEventListener("pointermove", onMove);
+    window.addEventListener("pointerup", onUp);
+    window.addEventListener("pointercancel", onUp);
+    return () => {
+      window.removeEventListener("pointermove", onMove);
+      window.removeEventListener("pointerup", onUp);
+      window.removeEventListener("pointercancel", onUp);
+    };
+  }, [setSidebarWidth]);
+
+  const onResizePointerDown = (e) => {
+    if (sidebarCollapsed) return;
+    resizingRef.current = true;
+    resizeStartXRef.current = e.clientX;
+    resizeStartWRef.current = Number.isFinite(sidebarWidth) ? sidebarWidth : 260;
+    document.body.classList.add("sidebar-resizing");
+    try {
+      e.currentTarget.setPointerCapture(e.pointerId);
+    } catch {
+      // ignore
+    }
+    e.preventDefault();
+    e.stopPropagation();
+  };
+
   const connItemProps = {
-    activeId, expandedConns, expandedTree, metadata, expandedFolders,
+    activeId, expandedConns, expandedTree, metadata, tableSizes, expandedFolders,
     draggedConnId, handleConnectionClick, handleEditConnection, handleDeleteConnection,
     handleDisconnect, handleReconnect, fetchConnections,
     handleConnectionContextMenu, handleTableContextMenu, toggleTree,
@@ -177,7 +242,10 @@ export function Sidebar({
 
 
   return (
-   <div className={`sidebar-wrapper ${sidebarCollapsed ? 'collapsed' : ''}`}>
+   <div
+      className={`sidebar-wrapper ${sidebarCollapsed ? 'collapsed' : ''}`}
+      style={sidebarCollapsed ? undefined : { width: `${sidebarWidth || 260}px` }}
+    >
       <div className="sidebar">
         {sidebarCollapsed ? (
           <div className="sidebar-icons-only">
@@ -283,6 +351,13 @@ export function Sidebar({
       <button className="sidebar-toggle-btn" onClick={() => setSidebarCollapsed(prev => !prev)} title={sidebarCollapsed ? 'Expand sidebar' : 'Collapse sidebar'}>
         {sidebarCollapsed ? '›' : '‹'}
       </button>
+      <div
+        className="sidebar-resizer"
+        role="separator"
+        aria-orientation="vertical"
+        onPointerDown={onResizePointerDown}
+        title="Drag to resize"
+      />
     </div>
   );
 }

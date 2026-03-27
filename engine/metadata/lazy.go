@@ -17,10 +17,17 @@ func GetSchemas(dbType string, db *sql.DB) ([]SchemaInfo, error) {
 
 	switch dbType {
 	case "postgres":
-		query = `SELECT schema_name
-				 FROM information_schema.schemata
-				 WHERE schema_name NOT IN ('information_schema', 'pg_catalog')
-				 ORDER BY schema_name;`
+		// User-facing namespaces only: omit system and common extension/plugin schemas.
+		query = `SELECT nspname AS schema_name
+				 FROM pg_namespace
+				 WHERE nspname NOT IN ('pg_catalog', 'information_schema', 'pg_toast')
+				   AND nspname NOT LIKE 'pg_temp%'
+				   AND nspname NOT LIKE 'pg_toast_temp%'
+				   AND nspname NOT LIKE '_timescaledb_%'
+				   AND nspname NOT IN ('timescaledb_experimental', 'timescaledb_information')
+				   AND nspname NOT LIKE 'citus%'
+				   AND nspname NOT IN ('pglogical', 'repack', 'cron', 'partman')
+				 ORDER BY nspname`
 	case "mysql":
 		// MySQL schemas are essentially databases, but since we connect via user DSN,
 		// typical behavior is tracking the connected DATABASE() as the "schema".

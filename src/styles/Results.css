@@ -242,6 +242,17 @@
   letter-spacing: 0.05em;
 }
 
+.special-tab-actions {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.special-tab-meta {
+  font-size: 11px;
+  color: var(--text-muted);
+}
+
 /* Redis Specific Results */
 .redis-section {
   padding: 16px;

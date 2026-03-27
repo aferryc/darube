@@ -25,7 +25,8 @@ describe('VisualPlan', () => {
     }
     render(<VisualPlan plan={plan} />)
     expect(screen.getByText('Seq Scan')).toBeInTheDocument()
-    expect(screen.getByText(/users/)).toBeInTheDocument()
+    expect(screen.getAllByText(/users/).length).toBeGreaterThan(0)
+    expect(screen.getByText(/Execution Summary/)).toBeInTheDocument()
     expect(screen.getByText(/Total Cost/)).toBeInTheDocument()
   })
 
@@ -46,9 +47,9 @@ describe('VisualPlan', () => {
       },
     }
     render(<VisualPlan plan={plan} />)
-    expect(screen.getByText('Nested Loop')).toBeInTheDocument()
+    expect(screen.getAllByText('Nested Loop').length).toBeGreaterThan(0)
     expect(screen.getByText('Seq Scan')).toBeInTheDocument()
-    expect(screen.getByText(/orders/)).toBeInTheDocument()
+    expect(screen.getAllByText(/orders/).length).toBeGreaterThan(0)
   })
 
   it('renders raw JSON fallback for unsupported plan format', () => {

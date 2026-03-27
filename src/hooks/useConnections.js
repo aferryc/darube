@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 
 export function useConnections(apiUrl) {
   const [connections, setConnections] = useState([]);
@@ -6,7 +6,9 @@ export function useConnections(apiUrl) {
   const [expandedConns, setExpandedConns] = useState({});
   const [expandedTree, setExpandedTree] = useState({});
   const [metadata, setMetadata] = useState({});
+  const [tableSizes, setTableSizes] = useState({});
   const [expandedFolders, setExpandedFolders] = useState({});
+  const tableSizesLoadingRef = useRef(new Set());
 
   // Folder form state
   const [editingFolderId, setEditingFolderId] = useState(null);
@@ -67,6 +69,55 @@ export function useConnections(apiUrl) {
     }
   };
 
+  const normalizeTableKey = (schema, table) => {
+    const s = String(schema || '').trim().toLowerCase();
+    const t = String(table || '').trim().toLowerCase();
+    if (!s) return t;
+    return `${s}.${t}`;
+  };
+
+  const fetchTableSizes = async (id) => {
+    try {
+      const res = await fetch(`${apiUrl}/api/connections/${id}/table-sizes`);
+      const data = await res.json();
+      if (!data?.success) return;
+
+      const sizes = Array.isArray(data.sizes) ? data.sizes : [];
+      const byKey = {};
+      for (const s of sizes) {
+        const key = normalizeTableKey(s.schema, s.table);
+        if (!key) continue;
+        byKey[key] = s.size_bytes;
+      }
+      setTableSizes(prev => ({
+        ...prev,
+        [id]: { byKey, updated_at: data.updated_at || '' },
+      }));
+    } catch (err) {
+      console.error('Failed to fetch table sizes', err);
+    }
+  };
+
+  const ensureTableSizesLoaded = async (id) => {
+    if (!id) return;
+    if (tableSizesLoadingRef.current.has(id)) return;
+    if (tableSizes[id]?.byKey) return;
+    tableSizesLoadingRef.current.add(id);
+    try {
+      const res = await fetch(`${apiUrl}/api/connections/${id}/table-sizes/status`);
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok || !data?.success) return;
+      const status = data.status || (typeof data.count === 'number' && data.count > 0 ? 'ready' : 'idle');
+      if (status === 'ready') {
+        await fetchTableSizes(id);
+      }
+    } catch (err) {
+      console.error('Failed to check table size status', err);
+    } finally {
+      tableSizesLoadingRef.current.delete(id);
+    }
+  };
+
   // Auto-expand connected connections
   useEffect(() => {
     let toFetch = false;
@@ -82,6 +133,33 @@ export function useConnections(apiUrl) {
     if (toFetch) setExpandedConns(prev => ({ ...prev, ...newExpanded }));
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [connections, metadata, expandedConns]);
+
+  // When a connection is expanded & connected, try to load table sizes (once cache is ready).
+  useEffect(() => {
+    connections.forEach(c => {
+      const isSQL = c.db_type !== 'redis' && c.db_type !== 'http' && c.db_type !== 'grpc';
+      if (!isSQL) return;
+      if (c.status !== 'connected') return;
+      if (!expandedConns[c.id]) return;
+      // Only useful once we have schemas/tables visible.
+      if (!metadata[c.id]) return;
+      ensureTableSizesLoaded(c.id);
+    });
+    // Prune entries for disconnected connections.
+    setTableSizes(prev => {
+      const connected = new Set(connections.filter(c => c.status === 'connected').map(c => c.id));
+      let changed = false;
+      const next = { ...prev };
+      for (const id of Object.keys(next)) {
+        if (!connected.has(id)) {
+          delete next[id];
+          changed = true;
+        }
+      }
+      return changed ? next : prev;
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [connections, expandedConns, metadata]);
 
   const handleConnectionClick = async (id, forceExpand = false) => {
     const isExpanded = forceExpand || !expandedConns[id];
@@ -262,7 +340,7 @@ export function useConnections(apiUrl) {
   };
 
   return {
-    connections, folders, metadata, expandedConns, expandedTree, expandedFolders,
+    connections, folders, metadata, tableSizes, expandedConns, expandedTree, expandedFolders,
     editingFolderId, folderEditName, showNewFolderInput, newFolderName,
     draggedConnId, dragOverFolderId,
     setExpandedFolders, setFolderEditName, setNewFolderName, setDraggedConnId, setDragOverFolderId,

@@ -38,11 +38,22 @@ func GetDatabases(dbType string, db *sql.DB) ([]DatabaseInfo, error) {
 	var query string
 	switch dbType {
 	case "postgres":
-		query = "SELECT datname FROM pg_database WHERE datistemplate = false"
+		// Exclude template DBs and the cluster default maintenance database (`postgres`).
+		query = `SELECT datname FROM pg_database
+			WHERE datistemplate = false
+			  AND datname NOT IN ('postgres')`
 	case "mysql":
-		query = "SHOW DATABASES"
+		// Exclude MySQL's built-in/system schemas.
+		query = `SELECT schema_name
+			FROM information_schema.schemata
+			WHERE schema_name NOT IN ('information_schema', 'mysql', 'performance_schema', 'sys')
+			ORDER BY schema_name`
 	case "sqlserver":
-		query = "SELECT name FROM sys.databases"
+		// Exclude SQL Server's system databases.
+		query = `SELECT name
+			FROM sys.databases
+			WHERE name NOT IN ('master', 'model', 'msdb', 'tempdb')
+			ORDER BY name`
 	case "oracle":
 		query = "SELECT SYS_CONTEXT('USERENV','DB_NAME') FROM dual"
 	case "sqlite":
