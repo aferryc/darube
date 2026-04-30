@@ -45,6 +45,24 @@ func TestConnectionHandler(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 	default:
+		// When connecting via Teleport local proxy, host/port are ignored and can be empty.
+		if req.TeleportEnabled {
+			if req.ConnectionName == "" || req.DBType == "" || req.User == "" || req.TeleportDBService == "" {
+				sendJSONResponse(w, CommandOutput{
+					Success: false,
+					Error:   "Missing required fields (connection_name, db_type, user, teleport_db_service)",
+				}, http.StatusBadRequest)
+				return
+			}
+			if (req.DBType == "postgres" || req.DBType == "postgresql") && req.DBName == "" {
+				sendJSONResponse(w, CommandOutput{
+					Success: false,
+					Error:   "Missing required field for Teleport Postgres (dbname)",
+				}, http.StatusBadRequest)
+				return
+			}
+			break
+		}
 		if req.ConnectionName == "" || req.DBType == "" || req.Host == "" || req.User == "" {
 			sendJSONResponse(w, CommandOutput{
 				Success: false,
@@ -55,7 +73,7 @@ func TestConnectionHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Attempt connection purely for testing
-	conn, err := db.Connect(req)
+	conn, cleanup, err := db.Connect(req)
 	if err != nil {
 		sendJSONResponse(w, CommandOutput{
 			Success: false,
@@ -66,6 +84,9 @@ func TestConnectionHandler(w http.ResponseWriter, r *http.Request) {
 
 	// Test successful, immediately close it
 	conn.Close()
+	if cleanup != nil {
+		cleanup()
+	}
 
 	sendJSONResponse(w, CommandOutput{
 		Success: true,

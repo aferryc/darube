@@ -45,6 +45,24 @@ func ConnectNewHandler(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 	default:
+		// When connecting via Teleport local proxy, host/port are ignored and can be empty.
+		if req.TeleportEnabled {
+			if req.ConnectionName == "" || req.DBType == "" || req.User == "" || req.TeleportDBService == "" {
+				sendJSONResponse(w, CommandOutput{
+					Success: false,
+					Error:   "Missing required fields (connection_name, db_type, user, teleport_db_service)",
+				}, http.StatusBadRequest)
+				return
+			}
+			if (req.DBType == "postgres" || req.DBType == "postgresql") && req.DBName == "" {
+				sendJSONResponse(w, CommandOutput{
+					Success: false,
+					Error:   "Missing required field for Teleport Postgres (dbname)",
+				}, http.StatusBadRequest)
+				return
+			}
+			break
+		}
 		if req.ConnectionName == "" || req.DBType == "" || req.Host == "" || req.User == "" {
 			sendJSONResponse(w, CommandOutput{
 				Success: false,
@@ -58,8 +76,18 @@ func ConnectNewHandler(w http.ResponseWriter, r *http.Request) {
 		req.ID = uuid.NewString()
 	}
 
+	if !store.BeginConnect(req.ID) {
+		sendJSONResponse(w, CommandOutput{
+			Success: true,
+			Message: "Connection attempt already in progress",
+			ID:      req.ID,
+		}, http.StatusOK)
+		return
+	}
+	defer store.EndConnect(req.ID)
+
 	// 1. Attempt connection
-	conn, err := db.Connect(req)
+	conn, cleanup, err := db.Connect(req)
 	if err != nil {
 		sendJSONResponse(w, CommandOutput{
 			Success: false,
@@ -72,6 +100,9 @@ func ConnectNewHandler(w http.ResponseWriter, r *http.Request) {
 	err = store.WriteConnection(req)
 	if err != nil {
 		conn.Close()
+		if cleanup != nil {
+			cleanup()
+		}
 		sendJSONResponse(w, CommandOutput{
 			Success: false,
 			Error:   "Failed to save connection config: " + err.Error(),
@@ -81,6 +112,7 @@ func ConnectNewHandler(w http.ResponseWriter, r *http.Request) {
 
 	// 3. Cache connection in memory
 	store.AddActiveConnection(req.ID, conn)
+	store.SetActiveCleanup(req.ID, cleanup)
 	startTableSizeEstimator(req.ID, req)
 
 	sendJSONResponse(w, CommandOutput{

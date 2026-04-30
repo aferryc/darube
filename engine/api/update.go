@@ -31,6 +31,16 @@ func UpdateConnectionHandler(w http.ResponseWriter, r *http.Request) {
 
 	req.ID = id // Ensure ID matches path
 
+	if !store.BeginConnect(req.ID) {
+		sendJSONResponse(w, CommandOutput{
+			Success: true,
+			Message: "Connection attempt already in progress",
+			ID:      req.ID,
+		}, http.StatusOK)
+		return
+	}
+	defer store.EndConnect(req.ID)
+
 	// If a password was not provided, keep the old one (if updating)
 	oldConfig, err := store.GetConnection(id)
 	if err == nil && req.Password == "" {
@@ -38,7 +48,7 @@ func UpdateConnectionHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// 1. Attempt connection with new credentials to verify
-	conn, err := db.Connect(req)
+	conn, cleanup, err := db.Connect(req)
 	if err != nil {
 		sendJSONResponse(w, CommandOutput{
 			Success: false,
@@ -51,6 +61,9 @@ func UpdateConnectionHandler(w http.ResponseWriter, r *http.Request) {
 	err = store.WriteConnection(req)
 	if err != nil {
 		conn.Close()
+		if cleanup != nil {
+			cleanup()
+		}
 		sendJSONResponse(w, CommandOutput{
 			Success: false,
 			Error:   "Failed to update connection config: " + err.Error(),
@@ -60,6 +73,7 @@ func UpdateConnectionHandler(w http.ResponseWriter, r *http.Request) {
 
 	// 3. Cache connection in memory (replacing old one)
 	store.AddActiveConnection(req.ID, conn)
+	store.SetActiveCleanup(req.ID, cleanup)
 	startTableSizeEstimator(req.ID, req)
 
 	sendJSONResponse(w, CommandOutput{

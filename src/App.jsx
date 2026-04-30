@@ -398,10 +398,15 @@ function App() {
       }
 
       const isFileDb = formData.db_type === "sqlite";
-      const portInt = isFileDb ? 0 : parseInt(formData.port);
+      const isTeleport = !!formData.teleport_enabled;
+      let portInt = isFileDb ? 0 : parseInt(formData.port);
       if (!isFileDb && isNaN(portInt)) {
-        alert("Please enter a valid port number");
-        return;
+        if (isTeleport) {
+          portInt = 0; // ignored by Teleport local proxy
+        } else {
+          alert("Please enter a valid port number");
+          return;
+        }
       }
 
       const isRedis = formData.db_type === "redis";
@@ -440,7 +445,7 @@ function App() {
   };
 
   const handleTestConnection = async (e) => {
-    e.preventDefault();
+    e?.preventDefault?.();
     try {
       const isHttp = formData.db_type === "http";
       const isGrpc = formData.db_type === "grpc";
@@ -504,10 +509,15 @@ function App() {
       }
 
       const isFileDb = formData.db_type === "sqlite";
-      const portInt = isFileDb ? 0 : parseInt(formData.port);
+      const isTeleport = !!formData.teleport_enabled;
+      let portInt = isFileDb ? 0 : parseInt(formData.port);
       if (!isFileDb && isNaN(portInt)) {
-        alert("Please enter a valid port number");
-        return;
+        if (isTeleport) {
+          portInt = 0; // ignored by Teleport local proxy
+        } else {
+          alert("Please enter a valid port number");
+          return;
+        }
       }
 
       const isRedis = formData.db_type === "redis";
@@ -515,14 +525,35 @@ function App() {
         ? `${apiUrl}/api/redis/test`
         : `${apiUrl}/api/connections/test`;
 
-      const res = await fetch(url, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          ...formData,
-          port: portInt,
-        }),
-      });
+      const startedAt = Date.now();
+      const safeMeta = {
+        db_type: formData.db_type,
+        host: formData.host,
+        port: portInt,
+        dbname: formData.dbname,
+        user: formData.user,
+        teleport_enabled: !!formData.teleport_enabled,
+        teleport_profile_id: formData.teleport_profile_id,
+        teleport_db_service: formData.teleport_db_service,
+      };
+      console.log("[Darube] Test Link: starting", safeMeta);
+
+      const controller = new AbortController();
+      const timeout = setTimeout(() => controller.abort(), 30000);
+      let res;
+      try {
+        res = await fetch(url, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          signal: controller.signal,
+          body: JSON.stringify({
+            ...formData,
+            port: portInt,
+          }),
+        });
+      } finally {
+        clearTimeout(timeout);
+      }
 
       if (!res.ok) {
         const text = await res.text();
@@ -530,10 +561,21 @@ function App() {
       }
 
       const data = await res.json();
+      console.log("[Darube] Test Link: finished in", Date.now() - startedAt, "ms", {
+        success: !!data?.success,
+        message: data?.message,
+        error: data?.error,
+      });
       data.success
         ? alert("Success: " + data.message)
         : alert("Connection Failed:\n\n" + data.error);
     } catch (err) {
+      if (String(err?.name) === "AbortError") {
+        console.warn("[Darube] Test Link: aborted (timeout)", err);
+        alert("Test timed out (30s). If Teleport is doing SSO/MFA or starting a local proxy, please try again.");
+        return;
+      }
+      console.error("[Darube] Test Link: error", err);
       alert("Error reaching engine: " + err.message);
     }
   };

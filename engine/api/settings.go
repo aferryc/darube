@@ -259,3 +259,34 @@ func DeleteTeleportProfileHandler(w http.ResponseWriter, r *http.Request) {
 	}
 	sendJSONResponse(w, map[string]interface{}{"success": true, "message": "Profile deleted"}, http.StatusOK)
 }
+
+// TeleportLoginHandler handles POST /api/teleport/login
+// Body: {"proxy": "teleport.example.com"}
+// Runs `tsh login --proxy=<host>` which opens the system browser for SSO.
+func TeleportLoginHandler(w http.ResponseWriter, r *http.Request) {
+	var body struct {
+		Proxy string `json:"proxy"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&body); err != nil || body.Proxy == "" {
+		sendJSONResponse(w, map[string]interface{}{"success": false, "error": "proxy is required"}, http.StatusBadRequest)
+		return
+	}
+	result, err := teleport.Login(r.Context(), body.Proxy)
+	if err != nil {
+		sendJSONResponse(w, map[string]interface{}{"success": false, "error": err.Error(), "output": result.Output}, http.StatusOK)
+		return
+	}
+	sendJSONResponse(w, map[string]interface{}{"success": true, "output": result.Output}, http.StatusOK)
+}
+
+// TeleportListDatabasesHandler handles GET /api/teleport/databases
+// Optional query param: ?profile=<name> to use a specific tsh profile.
+func TeleportListDatabasesHandler(w http.ResponseWriter, r *http.Request) {
+	profileName := r.URL.Query().Get("profile")
+	dbs, err := teleport.ListDatabases(r.Context(), profileName)
+	if err != nil {
+		sendJSONResponse(w, map[string]interface{}{"success": false, "error": err.Error()}, http.StatusOK)
+		return
+	}
+	sendJSONResponse(w, map[string]interface{}{"success": true, "databases": dbs}, http.StatusOK)
+}

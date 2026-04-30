@@ -10,6 +10,9 @@ export function ConnectionModal({
   const [activeTab, setActiveTab] = React.useState('general');
   const [connectionCategory, setConnectionCategory] = React.useState('sql');
   const [teleportProfiles, setTeleportProfiles] = React.useState([]);
+  const [isTesting, setIsTesting] = React.useState(false);
+  const [testStatus, setTestStatus] = React.useState('');
+  const testInFlightRef = React.useRef(false);
 
   // Sync category with form data if editing
   React.useEffect(() => {
@@ -43,6 +46,7 @@ export function ConnectionModal({
   const isOracle = formData.db_type === 'oracle';
   const isHttp = formData.db_type === 'http';
   const isGrpc = formData.db_type === 'grpc';
+  const isTeleport = !!formData.teleport_enabled;
 
   const onFieldChange = (e) => {
     const { name, type, value, checked } = e.target;
@@ -234,24 +238,43 @@ export function ConnectionModal({
                   <div className="form-row">
                     <div className="form-group flex-2">
                       <label>Host</label>
-                      <input name="host" required value={formData.host} onChange={onFieldChange} placeholder="localhost" />
+                      <input
+                        name="host"
+                        required={!isTeleport}
+                        value={formData.host}
+                        onChange={onFieldChange}
+                        placeholder={isTeleport ? "(ignored by Teleport)" : "localhost"}
+                      />
                     </div>
                     <div className="form-group flex-1">
                       <label>Port</label>
-                      <input name="port" type="number" required value={formData.port} onChange={onFieldChange} />
+                      <input name="port" type="number" required={!isTeleport} value={formData.port} onChange={onFieldChange} />
                     </div>
+                  </div>
+                )}
+
+                {isTeleport && !isSQLite && (
+                  <div className="form-help-text" style={{ marginTop: -10, marginBottom: 12 }}>
+                    With Teleport enabled, Darube starts a local <code>tsh proxy db --tunnel</code> and connects to
+                    <code> 127.0.0.1:&lt;random_port&gt;</code>. Host/port above are ignored.
                   </div>
                 )}
 
                 {!isSQLite && (
                   <div className="form-group">
-                    <label>{isOracle ? 'Service Name' : 'Database (Optional)'}</label>
+                    <label>
+                      {isOracle
+                        ? 'Service Name'
+                        : (isTeleport && (formData.db_type === 'postgres' || formData.db_type === 'postgresql'))
+                          ? 'Database (Required for Teleport)'
+                          : 'Database (Optional)'}
+                    </label>
                     <input
                       name="dbname"
                       value={formData.dbname}
                       onChange={onFieldChange}
                       placeholder={isOracle ? 'orclpdb1' : 'postgres'}
-                      required={isOracle}
+                      required={isOracle || (isTeleport && (formData.db_type === 'postgres' || formData.db_type === 'postgresql'))}
                     />
                   </div>
                 )}
@@ -566,9 +589,48 @@ export function ConnectionModal({
 
           <div className="modal-footer">
             <button type="button" className="secondary" onClick={onClose}>Cancel</button>
-            <button type="button" className="secondary test-link-btn" onClick={onTest}>Test Link</button>
+            <button
+              type="button"
+              className="secondary test-link-btn"
+              disabled={isTesting}
+              onClick={async (e) => {
+                if (testInFlightRef.current) return;
+                testInFlightRef.current = true;
+                setIsTesting(true);
+                setTestStatus(isTeleport ? 'Starting Teleport (tsh) local proxy...' : 'Testing connection...');
+                let t1, t2;
+                if (isTeleport) {
+                  t1 = setTimeout(() => setTestStatus('Waiting for tsh output (MFA/SSO may take a bit)...'), 1200);
+                  t2 = setTimeout(() => setTestStatus('Still working... if this hangs, run `tsh status` in a terminal.'), 6000);
+                } else {
+                  t1 = setTimeout(() => setTestStatus('Still working...'), 1200);
+                }
+                try {
+                  // Helpful breadcrumbs in DevTools without cluttering UI.
+                  if (isTeleport) {
+                    console.log('[Darube] Test Link: Teleport enabled; engine will run `tsh proxy db --tunnel`.');
+                  } else {
+                    console.log('[Darube] Test Link: direct connection.');
+                  }
+                  await onTest(e);
+                } finally {
+                  clearTimeout(t1);
+                  clearTimeout(t2);
+                  setIsTesting(false);
+                  setTestStatus('');
+                  testInFlightRef.current = false;
+                }
+              }}
+            >
+              {isTesting ? 'Testing...' : 'Test Link'}
+            </button>
             <button type="submit">Save</button>
           </div>
+          {isTesting && testStatus && (
+            <div className="form-help-text" style={{ marginTop: 10 }}>
+              {testStatus}
+            </div>
+          )}
         </form>
       </div>
     </div>

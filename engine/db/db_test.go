@@ -109,8 +109,8 @@ func TestBuildDSN_MySQL_SSL(t *testing.T) {
 	if err != nil {
 		t.Fatalf("buildDSN: %v", err)
 	}
-	if !strings.Contains(dsn, "tls=true") {
-		t.Errorf("expected tls=true: %s", dsn)
+	if !strings.Contains(dsn, "tls=skip-verify") {
+		t.Errorf("expected tls=skip-verify: %s", dsn)
 	}
 }
 
@@ -227,9 +227,12 @@ func TestBuildDSN_Oracle(t *testing.T) {
 }
 
 func TestConnect_SQLite(t *testing.T) {
-	conn, err := Connect(store.ConnectionConfig{DBType: "sqlite", FilePath: ":memory:"})
+	conn, cleanup, err := Connect(store.ConnectionConfig{DBType: "sqlite", FilePath: ":memory:"})
 	if err != nil {
 		t.Fatalf("Connect: %v", err)
 	}
 	_ = conn.Close()
+	if cleanup != nil {
+		cleanup()
+	}
 }

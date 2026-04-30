@@ -294,11 +294,12 @@ func (DefaultProvider) Conn(ctx context.Context, id string) (ConnHandle, error) 
 		if dbConn := store.GetActiveConnection(id); dbConn != nil {
 			return &sqlHandle{id: id, db: dbConn}, nil
 		}
-		dbConn, err := db.Connect(*cfg)
+		dbConn, cleanup, err := db.Connect(*cfg)
 		if err != nil {
 			return nil, err
 		}
 		store.AddActiveConnection(id, dbConn)
+		store.SetActiveCleanup(id, cleanup)
 		return &sqlHandle{id: id, db: dbConn}, nil
 	}
 

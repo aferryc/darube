@@ -37,6 +37,15 @@ func ConnectSavedHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	if !store.BeginConnect(req.ID) {
+		sendJSONResponse(w, CommandOutput{
+			Success: true,
+			Message: "Connection attempt already in progress",
+		}, http.StatusOK)
+		return
+	}
+	defer store.EndConnect(req.ID)
+
 	// 1. Check if already connected
 	if store.IsConnected(req.ID) {
 		sendJSONResponse(w, CommandOutput{
@@ -57,7 +66,7 @@ func ConnectSavedHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// 3. Connect DB
-	conn, err := db.Connect(*config)
+	conn, cleanup, err := db.Connect(*config)
 	if err != nil {
 		sendJSONResponse(w, CommandOutput{
 			Success: false,
@@ -68,6 +77,7 @@ func ConnectSavedHandler(w http.ResponseWriter, r *http.Request) {
 
 	// 4. Trace in memory
 	store.AddActiveConnection(req.ID, conn)
+	store.SetActiveCleanup(req.ID, cleanup)
 	startTableSizeEstimator(req.ID, *config)
 
 	sendJSONResponse(w, CommandOutput{

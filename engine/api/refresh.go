@@ -18,6 +18,16 @@ func RefreshConnectionHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	if !store.BeginConnect(id) {
+		sendJSONResponse(w, CommandOutput{
+			Success: true,
+			Message: "Connection attempt already in progress",
+			ID:      id,
+		}, http.StatusOK)
+		return
+	}
+	defer store.EndConnect(id)
+
 	// 1. Unload existing connection
 	err := store.RemoveActiveConnection(id)
 	if err != nil {
@@ -36,7 +46,7 @@ func RefreshConnectionHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// 3. Reconnect
-	conn, err := db.Connect(*config)
+	conn, cleanup, err := db.Connect(*config)
 	if err != nil {
 		sendJSONResponse(w, CommandOutput{
 			Success: false,
@@ -47,6 +57,7 @@ func RefreshConnectionHandler(w http.ResponseWriter, r *http.Request) {
 
 	// 4. Stash back to memory
 	store.AddActiveConnection(id, conn)
+	store.SetActiveCleanup(id, cleanup)
 	startTableSizeEstimator(id, *config)
 
 	sendJSONResponse(w, CommandOutput{
