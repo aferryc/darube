@@ -510,7 +510,8 @@ export function SettingsModal({ show, onClose, apiUrl, layoutDirection, onLayout
                     value={settings.theme_variant}
                     onChange={e => setSettings(s => ({ ...s, theme_variant: e.target.value }))}
                   >
-                    <option value="">Default</option>
+                    <option value="">Cyber Dark (Default)</option>
+                    <option value="cyber-light">Cyber Light</option>
                     <option value="dark">Dark</option>
                     <option value="ocean">Ocean</option>
                     <option value="high-contrast">High Contrast</option>

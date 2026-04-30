@@ -18,17 +18,20 @@
 .gap-12 { gap: 12px; }
 
 .test-link-btn {
-  background: var(--bg-dark);
+  background: var(--bg-card);
+  color: var(--text-main);
+  border: 1.5px solid var(--border);
 }
 
-
 body {
-  font-family: 'Plus Jakarta Sans', system-ui, -apple-system, sans-serif;
+  font-family: var(--app-font-family);
   background-color: var(--bg-dark);
   color: var(--text-main);
   height: 100vh;
   overflow: hidden;
   letter-spacing: 0.01em;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
 }
 
 ::-webkit-scrollbar {
@@ -41,43 +44,59 @@ body {
 }
 
 ::-webkit-scrollbar-thumb {
-  background: #334155;
-  border-radius: 6px;
+  background: var(--border-medium);
+  border-radius: 0;
+  border: 2px solid transparent;
+  background-clip: padding-box;
 }
 
 ::-webkit-scrollbar-thumb:hover {
-  background: #475569;
+  background: var(--border);
+  border: 2px solid transparent;
+  background-clip: padding-box;
 }
 
-/* Base Components */
+/* ─── Brutalist primary button ─────────────────────────────────────── */
 button {
-  background: linear-gradient(180deg, #4f8cff, #3b74d8);
-  color: white;
-  border: none;
-  padding: 7px 14px;
-  border-radius: 6px;
+  background: var(--accent);
+  color: var(--text-on-accent);
+  border: 1.5px solid var(--border);
+  padding: 8px 16px;
+  border-radius: var(--r-sm);
   cursor: pointer;
-  font-weight: 500;
-  transition: all .15s ease;
-  font-size: 13px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  transition: transform .1s ease, box-shadow .1s ease, background .12s ease;
+  font-size: 12px;
+  font-family: var(--font-mono);
+  text-transform: uppercase;
+  box-shadow: 2px 2px 0 0 var(--border);
 }
 
 button:hover {
-  transform: translateY(-1px);
-  box-shadow: 0 6px 14px rgba(37,99,235,0.35);
+  transform: translate(-1px, -1px);
+  box-shadow: 3px 3px 0 0 var(--border);
+  background: var(--accent-hover);
+}
+
+button:active {
+  transform: translate(1px, 1px);
+  box-shadow: 0 0 0 0 var(--border);
 }
 
 button.secondary {
-  background-color: var(--bg-card);
-  border: 1px solid var(--border);
+  background: var(--bg-card);
+  color: var(--text-main);
+  border: 1.5px solid var(--border);
 }
 
 button.secondary:hover {
-  background-color: #475569;
+  background: var(--bg-hover);
 }
 
 button.danger {
-  background-color: var(--danger);
+  background: var(--danger);
+  color: #fff;
 }
 
 img.icon {
@@ -101,7 +120,15 @@ img.icon-lg {
   flex-shrink: 0;
 }
 
+/* By default render icons in ink (dark on light surface). */
 .icon-light {
+  filter: var(--icon-filter);
+}
+
+/* When inside a dark surface (active card, dark button, inverse panel), invert */
+.bg-elevated .icon-light,
+.tab.active .icon-light,
+[data-on-dark] .icon-light {
   filter: brightness(0) invert(1);
 }
 
@@ -110,4 +137,34 @@ img.icon-lg {
   align-items: center;
   gap: 8px;
   line-height: 1;
+}
+
+/* Inputs and form controls — brutalist white-on-paper */
+input[type="text"],
+input[type="number"],
+input[type="password"],
+input[type="email"],
+input[type="search"],
+select,
+textarea {
+  background: var(--bg-card);
+  color: var(--text-main);
+  border: 1.5px solid var(--border);
+  border-radius: var(--r-sm);
+  padding: 8px 10px;
+  font-family: inherit;
+  font-size: 12px;
+  outline: none;
+  transition: border-color 0.12s ease, box-shadow 0.12s ease;
+}
+
+input[type="text"]:focus,
+input[type="number"]:focus,
+input[type="password"]:focus,
+input[type="email"]:focus,
+input[type="search"]:focus,
+select:focus,
+textarea:focus {
+  border-color: var(--accent);
+  box-shadow: 2px 2px 0 0 var(--accent);
 }

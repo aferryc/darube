@@ -15,11 +15,12 @@
 .cell-editor-input {
   width: 100%;
   box-sizing: border-box;
-  border: 1px solid var(--accent);
-  background: var(--bg-dark);
-  color: white;
+  border: 1.5px solid var(--accent);
+  background: var(--bg-card);
+  color: var(--text-main);
   padding: 2px 4px;
   font-size: inherit;
+  outline: none;
 }
 
 .export-btn {
@@ -72,7 +73,7 @@
 .results-table td {
   padding: 10px 14px;
   text-align: left;
-  border-bottom: 1px solid #334155;
+  border-bottom: 1px solid var(--border-soft);
   white-space: nowrap;
 }
 
@@ -80,17 +81,19 @@
   position: sticky;
   top: 0;
   z-index: 10;
-  background-color: #0d1424;
-  color: var(--text-muted);
-  font-size: var(--text-xs);
+  background-color: var(--bg-elevated);
+  color: var(--text-on-dark);
+  font-size: 9px;
   text-transform: uppercase;
-  letter-spacing: 0.05em;
-  font-weight: 600;
-  box-shadow: 0 1px 0 #334155; /* Re-create the border-bottom that gets hidden by background-color when sticky */
+  letter-spacing: 0.12em;
+  font-weight: 800;
+  font-family: var(--font-mono);
+  box-shadow: 0 2px 0 var(--accent);
+  border-bottom: 0;
 }
 
 .results-table tr:hover td {
-  background-color: rgba(255, 255, 255, 0.05);
+  background-color: var(--bg-hover);
 }
 
 .results-table td {
@@ -101,7 +104,7 @@
 
 .results-table tr.selected-row td {
   background-color: var(--accent);
-  color: white;
+  color: var(--text-on-accent);
   border-bottom: 1px solid var(--accent);
 }
 
@@ -134,29 +137,35 @@
   display: flex;
   justify-content: space-between;
   align-items: center;
-  padding: 10px;
+  padding: 10px 14px;
   background-color: var(--bg-sidebar);
-  border-top: 1px solid var(--border);
-  font-size: 12px;
+  border-top: var(--border-width) solid var(--border);
+  font-size: 11px;
   color: var(--text-muted);
+  font-family: var(--font-mono);
+  letter-spacing: 0.04em;
 }
 
 .pagination-bar select {
   margin-left: 10px;
-  padding: 4px;
-  background: var(--bg-dark);
-  color: white;
-  border: 1px solid var(--border);
+  padding: 4px 8px;
+  background: var(--bg-card);
+  color: var(--text-main);
+  border: 1.5px solid var(--border);
   outline: none;
+  font-family: inherit;
+  font-size: 11px;
 }
 
 .mutation-action-bar {
   display: flex;
   gap: 8px;
-  padding: 8px 12px;
-  background: var(--bg-dark);
-  border-bottom: 1px solid var(--border);
+  padding: 10px 14px;
+  background: var(--accent-soft);
+  border-bottom: 1.5px solid var(--accent);
   align-items: center;
+  font-family: var(--font-mono);
+  font-size: 11px;
 }
 
 .mutation-count {
@@ -220,26 +229,29 @@
   flex: 1;
   padding: 20px;
   overflow: auto;
-  background: var(--bg-dark);
-  font-family: "JetBrains Mono", monospace;
+  background: var(--bg-editor);
+  font-family: var(--font-mono);
   white-space: pre-wrap;
   color: var(--text-main);
+  font-size: 12px;
+  line-height: 1.6;
 }
 
 .special-tab-header {
   display: flex;
   justify-content: space-between;
-  padding: 10px 15px;
-  border-bottom: 1px solid var(--border);
+  padding: 12px 16px;
+  border-bottom: var(--border-width) solid var(--border);
   background: var(--bg-sidebar);
 }
 
 .special-tab-title {
-  font-weight: 600;
-  font-size: 12px;
-  color: var(--text-muted);
+  font-weight: 800;
+  font-size: 11px;
+  color: var(--text-main);
   text-transform: uppercase;
-  letter-spacing: 0.05em;
+  letter-spacing: 0.12em;
+  font-family: var(--font-mono);
 }
 
 .special-tab-actions {
@@ -433,17 +445,18 @@
   display: flex;
   align-items: center;
   gap: 10px;
-  padding: 10px 12px;
-  border-bottom: 1px solid var(--border);
-  background: rgba(255, 255, 255, 0.02);
+  padding: 10px 14px;
+  border-bottom: var(--border-width) solid var(--border);
+  background: var(--bg-sidebar);
 }
 
 .script-title {
   font-size: 11px;
-  font-weight: 700;
-  letter-spacing: 0.06em;
+  font-weight: 800;
+  letter-spacing: 0.12em;
   text-transform: uppercase;
-  color: var(--text-muted);
+  color: var(--text-main);
+  font-family: var(--font-mono);
 }
 
 .script-run-btn {
@@ -458,14 +471,13 @@
   width: 34px;
   justify-content: center;
   padding: 0;
-  background: transparent;
-  border: 1px solid var(--border);
+  background: var(--bg-card);
+  color: var(--text-main);
+  border: 1.5px solid var(--border);
 }
 
 .script-help-btn:hover {
-  transform: none;
-  box-shadow: none;
-  background: rgba(255, 255, 255, 0.04);
+  background: var(--bg-hover);
 }
 
 .script-split {
@@ -497,13 +509,14 @@
 .script-output-pre {
   margin: 0;
   padding: 14px;
-  border-radius: 10px;
-  border: 1px solid var(--border);
-  background: var(--bg-dark);
-  color: #a5d6ff;
-  font-family: "JetBrains Mono", monospace;
+  border-radius: var(--r-sm);
+  border: 1.5px solid var(--border);
+  background: var(--bg-elevated);
+  color: var(--accent-electric);
+  font-family: var(--font-mono);
   font-size: 12px;
-  line-height: 1.45;
+  line-height: 1.5;
   white-space: pre-wrap;
   word-break: break-word;
+  box-shadow: 3px 3px 0 0 var(--border);
 }

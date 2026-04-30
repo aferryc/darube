@@ -206,11 +206,9 @@ function App() {
     } else {
       root.style.removeProperty("--accent");
     }
-    if (settings.theme_variant) {
-      root.setAttribute("data-theme", settings.theme_variant);
-    } else {
-      root.removeAttribute("data-theme");
-    }
+    // Default to a darker palette when no explicit variant is chosen.
+    // Use `cyber-light` to opt back into the original light look.
+    root.setAttribute("data-theme", settings.theme_variant || "dark");
   }, [settings]);
 
   // ── Close context menu on global click ───────────────────────────────────
@@ -673,6 +671,11 @@ function App() {
       return () => {};
     }
 
+    if (activeConn.status !== "connected") {
+      setTableSizeStatus({ status: "inactive", error: "Connection is not active" });
+      return () => {};
+    }
+
     setTableSizeStatus({ status: "checking" });
 
     const poll = async () => {
@@ -717,7 +720,7 @@ function App() {
       cancelled = true;
       if (timer) clearTimeout(timer);
     };
-  }, [activeId, activeConn?.db_type, apiUrl]);
+  }, [activeId, activeConn?.db_type, activeConn?.status, apiUrl]);
 
   // ── Context menu action dispatcher ───────────────────────────────────────
   const handleMenuAction = async (action) => {
@@ -1284,6 +1287,9 @@ function App() {
                         "redis",
                       )
                     }
+                    onSelectionChange={({ selectionStart, selectionEnd }) =>
+                      tabs.updateActiveTabSelection(selectionStart, selectionEnd)
+                    }
                     onContextMenu={ctxMenu.handleTextContextMenu}
                     disabled={!activeId}
                   />
@@ -1297,6 +1303,9 @@ function App() {
                         tabs.activeTab.connectionId || activeId,
                         activeConn?.db_type,
                       )
+                    }
+                    onSelectionChange={({ selectionStart, selectionEnd }) =>
+                      tabs.updateActiveTabSelection(selectionStart, selectionEnd)
                     }
                     onContextMenu={ctxMenu.handleTextContextMenu}
                     disabled={!activeId}
@@ -1327,7 +1336,7 @@ function App() {
                       if (updatedLabel) {
                         meta.push(`updated ${updatedLabel}`);
                       }
-                      if (tableSizeStatus?.error) {
+                      if (tableSizeStatus?.error && tableSizeStatus?.status !== "inactive") {
                         meta.push(tableSizeStatus.error);
                       }
                       const metaText = meta.length ? ` • ${meta.join(" • ")}` : "";
@@ -1358,6 +1367,14 @@ function App() {
                           >
                             Table size cache: checking{metaText}
                             <span className={`status-progress ${tableSizeStatus?.error ? "danger" : "info"}`} />
+                          </span>
+                        );
+                      }
+                      if (tableSizeStatus?.status === "inactive") {
+                        return (
+                          <span className="status-pill danger">
+                            Table size cache: connection inactive{metaText}
+                            <span className="status-progress danger" />
                           </span>
                         );
                       }

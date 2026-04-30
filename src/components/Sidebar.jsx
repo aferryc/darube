@@ -274,13 +274,14 @@ export function Sidebar({
         ) : (
           <>
             <div className="sidebar-header">
-              <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                <span>Connections</span>
+              <div>
+                <span>My Conns</span>
+                <span className="sidebar-header-count">[{String(connections.length).padStart(2, '0')}]</span>
               </div>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
-                <button onClick={onShowHelp} className="btn-icon" style={{ padding: '5px' }} title="Help"><img src={iconQuestion} className="icon-sm icon-light" alt="Help" /></button>
-                <button onClick={onShowSettings} className="btn-icon" style={{ padding: '5px' }} title="Settings"><img src={iconSettings} className="icon-sm icon-light" alt="Settings" /></button>
-                <button onClick={onNewConnection} className="btn-icon" style={{ padding: '5px' }}><img src={iconAdd} className="icon-sm icon-light" alt="Add" /></button>
+              <div>
+                <button onClick={onShowHelp} className="btn-icon" title="Help"><img src={iconQuestion} className="icon-sm icon-light" alt="Help" /></button>
+                <button onClick={onShowSettings} className="btn-icon" title="Settings"><img src={iconSettings} className="icon-sm icon-light" alt="Settings" /></button>
+                <button onClick={onNewConnection} className="btn-icon" title="New Connection"><img src={iconAdd} className="icon-sm icon-light" alt="Add" /></button>
               </div>
             </div>
 
@@ -289,7 +290,7 @@ export function Sidebar({
                 <div className="new-folder-input-row">
                   <input autoFocus value={newFolderName} onChange={e => setNewFolderName(e.target.value)}
                     onKeyDown={e => { if (e.key === 'Enter') handleSubmitNewFolder(); if (e.key === 'Escape') { setNewFolderName(''); } }}
-                    placeholder="Folder name..." style={{ flex: 1, fontSize: '12px', padding: '4px 8px', background: 'var(--bg-dark)', border: '1px solid var(--accent)', borderRadius: '4px', color: 'white', outline: 'none' }} />
+                    placeholder="Folder name..." style={{ flex: 1, fontSize: '12px', padding: '4px 8px', background: 'var(--bg-card)', border: '1.5px solid var(--accent)', borderRadius: '4px', color: 'var(--text-main)', outline: 'none' }} />
                   <button onClick={handleSubmitNewFolder} style={{ fontSize: '11px', padding: '3px 8px' }}>Add</button>
                   <button onClick={() => setNewFolderName('')} className="secondary" style={{ fontSize: '11px', padding: '3px 6px' }}>✕</button>
                 </div>
@@ -318,7 +319,7 @@ export function Sidebar({
                         <input autoFocus value={folderEditName} onChange={e => setFolderEditName(e.target.value)}
                           onKeyDown={e => { if (e.key === 'Enter') handleSubmitRenameFolder(folder.id); if (e.key === 'Escape') { setFolderEditName(''); } }}
                           onClick={e => e.stopPropagation()}
-                          style={{ flex: 1, fontSize: '12px', padding: '2px 6px', background: 'var(--bg-dark)', border: '1px solid var(--accent)', borderRadius: '4px', color: 'white', outline: 'none', marginRight: '4px' }} />
+                          style={{ flex: 1, fontSize: '12px', padding: '2px 6px', background: 'var(--bg-card)', border: '1.5px solid var(--accent)', borderRadius: '4px', color: 'var(--text-main)', outline: 'none', marginRight: '4px' }} />
                       ) : (
                         <span style={{ flex: 1, fontWeight: 600, fontSize: '12px', color: isDragTarget ? 'var(--accent)' : 'var(--text-muted)', letterSpacing: '0.05em', textTransform: 'uppercase' }}>{folder.name}</span>
                       )}

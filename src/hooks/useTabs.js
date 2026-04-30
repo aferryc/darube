@@ -26,6 +26,7 @@ export function useTabs(apiUrl, activeId, setLoading, settings) {
   const [activeTabId, setActiveTabId] = useState("tab-1");
   const [editingTabId, setEditingTabId] = useState(null);
   const activeRequestRef = useRef(null);
+  const selectionByTabRef = useRef({});
 
   const activeTab = tabs.find((t) => t.id === activeTabId) || tabs[0];
 
@@ -210,10 +211,54 @@ export function useTabs(apiUrl, activeId, setLoading, settings) {
     const newTabs = tabs.filter((t) => t.id !== idToClose);
     setTabs(newTabs);
     if (activeTabId === idToClose) setActiveTabId(newTabs[0].id);
+    delete selectionByTabRef.current[idToClose];
+  };
+
+  const updateActiveTabSelection = (selectionStart, selectionEnd, tabId = activeTabId) => {
+    if (!tabId) return;
+    selectionByTabRef.current[tabId] = {
+      selectionStart: Number(selectionStart) || 0,
+      selectionEnd: Number(selectionEnd) || 0,
+    };
+  };
+
+  const shouldRequireSelectionForSql = (query) => {
+    // When users write multiple independent queries on separate lines (without semicolons),
+    // running the whole buffer is confusing. Require an explicit selection in that case.
+    const raw = String(query || "");
+    const lines = raw
+      .split(/\r?\n/)
+      .map((l) => l.trim())
+      .filter(Boolean);
+    if (lines.length <= 1) return false;
+    // If the user already uses semicolons, allow multi-statement runs.
+    if (raw.includes(";")) return false;
+    // Heuristic: require selection only when we likely have multiple independent statements.
+    // Most common "oops" case is multiple `SELECT` blocks stacked without semicolons.
+    const selectStarts = lines.filter((l) => /^SELECT\b/i.test(l)).length;
+    if (selectStarts >= 2) return true;
+    const dmlStarts = lines.filter((l) => /^(INSERT|UPDATE|DELETE|EXPLAIN)\b/i.test(l)).length;
+    return dmlStarts >= 2;
   };
 
   const executeQuery = async (queryToRun, connectionId, connectionType) => {
-    const finalQuery = (queryToRun || activeTab.query).trim();
+    const tabText = activeTab.query || "";
+    const sel = selectionByTabRef.current[activeTabId] || null;
+    const hasSelection =
+      sel && Number.isFinite(sel.selectionStart) && Number.isFinite(sel.selectionEnd) && sel.selectionStart !== sel.selectionEnd;
+
+    let source = queryToRun;
+    if (!source && hasSelection) {
+      const s = Math.max(0, Math.min(tabText.length, sel.selectionStart));
+      const e = Math.max(0, Math.min(tabText.length, sel.selectionEnd));
+      source = tabText.substring(Math.min(s, e), Math.max(s, e));
+    }
+    if (!source && connectionType !== "redis" && shouldRequireSelectionForSql(tabText)) {
+      alert('Highlight a line (or selection) to run, or add semicolons to run multiple SQL statements.');
+      return;
+    }
+
+    const finalQuery = (source || tabText).trim();
     const targetCId = connectionId || activeTab.connectionId || activeId;
     if (!targetCId || !finalQuery) return;
 
@@ -422,11 +467,12 @@ export function useTabs(apiUrl, activeId, setLoading, settings) {
       e.preventDefault();
       const ta = e.target;
       const { selectionStart: s, selectionEnd: en } = ta;
-      executeQuery(
-        s !== en ? activeTab.query.substring(s, en) : activeTab.query,
-        connectionId,
-        connectionType,
-      );
+      updateActiveTabSelection(s, en);
+      if (connectionType !== "redis" && shouldRequireSelectionForSql(activeTab.query || "") && s === en) {
+        alert('Highlight a line (or selection) to run, or add semicolons to run multiple SQL statements.');
+        return;
+      }
+      executeQuery(s !== en ? activeTab.query.substring(s, en) : null, connectionId, connectionType);
     }
   };
 
@@ -450,5 +496,6 @@ export function useTabs(apiUrl, activeId, setLoading, settings) {
     executeExplain,
     cancelActiveRequest,
     handleKeyDown,
+    updateActiveTabSelection,
   };
 }

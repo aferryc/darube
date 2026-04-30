@@ -40,6 +40,7 @@ export function SqlAutocomplete({
   onChange,
   onKeyDown,
   onContextMenu,
+  onSelectionChange,
   disabled,
   placeholder,
   style,
@@ -211,8 +212,8 @@ export function SqlAutocomplete({
       editorRole="sql"
       onKeyDown={onKeyDown}
       onContextMenu={onContextMenu}
+      onSelectionChange={onSelectionChange}
       onMount={handleMount}
     />
   );
 }
-

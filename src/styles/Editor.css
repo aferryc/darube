@@ -12,9 +12,9 @@
   flex: 1;
   min-height: 0;
   background: transparent;
-  border: 1px solid var(--border);
+  border: 1.5px solid var(--border);
   position: relative;
-  font-family: "JetBrains Mono", "Menlo", monospace;
+  font-family: var(--font-mono);
   font-size: 12px;
   /* Monaco (and textarea fallback) manage their own scrolling. */
   overflow: hidden;
@@ -22,19 +22,21 @@
 
 .query-editor-container:focus-within {
   border-color: var(--accent);
-  box-shadow: 0 0 0 2px rgba(59,130,246,0.15);
+  box-shadow: 3px 3px 0 0 var(--accent);
 }
 
 .editor-status-bar {
   display: flex;
   justify-content: space-between;
-  padding: 6px 16px;
-  background: rgba(255, 255, 255, 0.02);
-  border-top: 1px solid var(--border);
+  padding: 8px 16px;
+  background: var(--bg-elevated);
+  border-top: var(--border-width) solid var(--border);
   font-size: 10px;
-  color: var(--text-muted);
-  font-family: "JetBrains Mono", monospace;
-  letter-spacing: 0.02em;
+  color: var(--text-on-dark);
+  font-family: var(--font-mono);
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  font-weight: 600;
   flex-shrink: 0;
 }
 
@@ -46,26 +48,31 @@
 
 .status-pill {
   font-size: 9px;
-  padding: 2px 6px;
-  border-radius: 999px;
-  border: 1px solid var(--border);
-  color: var(--text-muted);
+  padding: 2px 8px;
+  border-radius: 2px;
+  border: 1px solid var(--text-on-dark);
+  color: var(--text-on-dark);
   text-transform: uppercase;
-  letter-spacing: 0.05em;
+  letter-spacing: 0.08em;
+  font-weight: 700;
+  background: transparent;
 }
 
 .status-pill.warning {
-  border-color: rgba(255, 193, 7, 0.5);
-  color: #fbbf24;
+  border-color: var(--warning);
+  color: var(--warning);
+  background: rgba(245, 158, 11, 0.15);
 }
 
 .status-pill.danger {
-  border-color: rgba(239, 68, 68, 0.5);
-  color: #f87171;
+  border-color: var(--accent);
+  color: var(--accent);
+  background: rgba(255, 31, 61, 0.15);
 }
 
 .status-pill.muted {
-  color: var(--text-muted);
+  color: var(--text-faint);
+  border-color: var(--text-faint);
 }
 
 .status-progress {
@@ -100,35 +107,46 @@
   --status-progress-color: #60a5fa;
 }
 
+.status-progress.danger {
+  --status-progress-color: var(--accent);
+  background: rgba(255, 31, 61, 0.18);
+}
+
+.status-progress.danger::after {
+  animation: none;
+  left: 0;
+  width: 100%;
+}
+
 @keyframes statusProgress {
   from { left: -40%; }
   to { left: 100%; }
 }
 
-/* PrismJS Syntax Highlighting */
-.token.keyword { color: #c678dd; font-weight: bold; }
-.token.string { color: #98c379; }
-.token.number { color: #d19a66; }
-.token.function { color: #61afef; }
-.token.operator { color: #56b6c2; }
-.token.punctuation { color: #abb2bf; }
-.token.comment { color: #5c6370; font-style: italic; }
+/* PrismJS Syntax Highlighting — theme-aware via Variables.css */
+.token.keyword     { color: var(--syntax-keyword); font-weight: 700; }
+.token.string      { color: var(--syntax-string); }
+.token.number      { color: var(--syntax-number); }
+.token.function    { color: var(--syntax-function); font-weight: 600; }
+.token.operator    { color: var(--syntax-operator); }
+.token.punctuation { color: var(--syntax-punctuation); }
+.token.comment     { color: var(--syntax-comment); font-style: italic; }
 
 /* SQL Autocomplete Dropdown */
 .ac-dropdown {
   position: absolute;
   z-index: 9999;
   background: var(--bg-card);
-  border: 1px solid var(--border);
-  border-radius: 8px;
-  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.45);
+  border: 1.5px solid var(--border);
+  border-radius: var(--r-sm);
+  box-shadow: 4px 4px 0 0 var(--border);
   list-style: none;
   margin: 0; padding: 4px 0;
   min-width: 220px;
   max-width: 380px;
   max-height: 260px;
   overflow-y: auto;
-  font-family: "JetBrains Mono", monospace;
+  font-family: var(--font-mono);
   font-size: 12px;
   animation: acFadeIn 0.1s ease;
 }
@@ -144,7 +162,7 @@
   gap: 8px;
   padding: 5px 10px;
   cursor: pointer;
-  color: var(--text);
+  color: var(--text-main);
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -152,7 +170,7 @@
 
 .ac-item:hover, .ac-selected {
   background: var(--accent);
-  color: #fff;
+  color: var(--text-on-accent);
 }
 
 .ac-badge {
@@ -165,9 +183,9 @@
   text-transform: uppercase;
 }
 
-.ac-badge-col { background: rgba(99,102,241,0.2); color: #818cf8; }
-.ac-badge-tbl { background: rgba(16,185,129,0.2); color: #34d399; }
-.ac-badge-kw  { background: rgba(245,158,11,0.15); color: #fbbf24; }
+.ac-badge-col { background: #1d4ed8; color: #fff; }
+.ac-badge-tbl { background: #1f7a3a; color: #fff; }
+.ac-badge-kw  { background: var(--accent); color: #fff; }
 
 /* Redis Autocomplete specialized styles */
 .redis-ac-dropdown {

@@ -1,7 +1,7 @@
 .tabs-bar {
   display: flex;
   background-color: var(--bg-sidebar);
-  border-bottom: 1px solid var(--border);
+  border-bottom: var(--border-width) solid var(--border);
   align-items: stretch;
   overflow: hidden;
   -webkit-app-region: drag;
@@ -30,45 +30,53 @@
 .tabs-actions {
   display: flex;
   gap: 8px;
-  padding: 0 8px;
+  padding: 0 10px;
   align-items: center;
   flex: 0 0 auto;
-  border-left: 1px solid var(--border);
+  border-left: var(--border-width) solid var(--border);
+  background: var(--bg-sidebar);
 }
 
 .tab-context-menu {
   position: fixed;
   z-index: 9999;
   min-width: 220px;
-  background: rgba(15, 20, 35, 0.98);
-  border: 1px solid var(--border);
-  border-radius: 10px;
-  box-shadow: 0 12px 40px rgba(0, 0, 0, 0.55);
-  padding: 6px;
-  backdrop-filter: blur(10px);
+  background: var(--bg-card);
+  border: var(--border-width) solid var(--border);
+  border-radius: var(--r-sm);
+  box-shadow: 4px 4px 0 0 var(--border);
+  padding: 4px;
 }
 
 .tab-context-item {
   width: 100%;
   background: transparent;
   border: none;
-  color: var(--text);
+  color: var(--text-main);
   text-align: left;
-  padding: 10px 12px;
-  border-radius: 8px;
+  padding: 8px 12px;
+  border-radius: 2px;
   cursor: pointer;
   font-size: var(--text-sm);
+  text-transform: none;
+  font-weight: 500;
+  letter-spacing: 0;
+  font-family: inherit;
+  box-shadow: none;
 }
 
 .tab-context-item:hover {
-  background: rgba(255, 255, 255, 0.06);
+  background: var(--accent);
+  color: var(--text-on-accent);
+  transform: none;
+  box-shadow: none;
 }
 
 .tab-context-sep {
   height: 1px;
-  background: var(--border);
-  margin: 6px 4px;
-  opacity: 0.8;
+  background: var(--border-soft);
+  margin: 4px 4px;
+  opacity: 1;
 }
 
 .tab {
@@ -76,67 +84,110 @@
   padding: 0 18px;
   background-color: transparent;
   color: var(--text-muted);
-  border-right: 1px solid var(--border);
+  border-right: 1px solid var(--border-soft);
   cursor: pointer;
   display: flex;
   align-items: center;
   gap: 8px;
-  font-size: var(--text-sm);
-  transition: all 0.2s ease;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  font-family: var(--font-mono);
+  transition: background 0.12s ease, color 0.12s ease;
+  position: relative;
 }
 
 .tab:hover {
-  background-color: rgba(255,255,255,0.05);
+  background-color: var(--bg-hover);
+  color: var(--text-main);
 }
 
 .tab.active {
-  color: white;
-  background: var(--bg-dark);
-  border-bottom: 2px solid var(--accent);
-  box-shadow: inset 0 -2px 0 var(--accent);
+  color: var(--text-main);
+  background: var(--bg-card);
+  border-bottom: 0;
+  box-shadow: none;
+}
+
+.tab.active::after {
+  content: "";
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: -2px;
+  height: 4px;
+  background: var(--accent);
+  z-index: 2;
 }
 
 .tab.add-tab {
-  padding: 0 15px;
-  font-size: 16px;
+  padding: 0 14px;
+  font-size: 18px;
+  font-weight: 800;
+  color: var(--text-main);
+}
+
+.tab.add-tab:hover {
+  background: var(--accent);
+  color: var(--text-on-accent);
 }
 
 .close-tab {
-  width: 16px;
-  height: 16px;
-  border-radius: 50%;
+  width: 18px;
+  height: 18px;
+  border-radius: 0;
   display: flex;
   align-items: center;
   justify-content: center;
   font-size: 14px;
+  color: var(--text-muted);
+  transition: all 0.12s ease;
 }
 
 .close-tab:hover {
-  background-color: rgba(255,255,255,0.1);
-  color: var(--danger);
+  background-color: var(--accent);
+  color: var(--text-on-accent);
 }
 
 .tab-action-btn {
   display: flex;
   align-items: center;
   gap: 6px;
-  padding: 8px 16px;
+  padding: 6px 14px;
   background: var(--accent);
-  color: white;
+  color: var(--text-on-accent);
   cursor: pointer;
-  font-size: var(--text-sm);
-  font-weight: 600;
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  font-family: var(--font-mono);
   white-space: nowrap;
   flex-shrink: 0;
-  transition: background 0.15s ease;
+  border: 1.5px solid var(--border);
+  border-radius: var(--r-sm);
+  box-shadow: 2px 2px 0 0 var(--border);
+  transition: transform 0.1s ease, box-shadow 0.1s ease, background 0.12s ease;
 }
 
 .tab-action-btn:hover {
+  transform: translate(-1px, -1px);
+  box-shadow: 3px 3px 0 0 var(--border);
   background: var(--accent-hover);
 }
 
+.tab-action-btn:active {
+  transform: translate(1px, 1px);
+  box-shadow: 0 0 0 0 var(--border);
+}
+
 .tab-action-btn.secondary {
-  background: transparent;
-  border: 1px solid var(--border);
+  background: var(--bg-card);
+  color: var(--text-main);
   margin-right: 5px;
+}
+
+.tab-action-btn.secondary:hover {
+  background: var(--bg-hover);
 }

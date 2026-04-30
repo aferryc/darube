@@ -21,6 +21,7 @@ export function MonacoCodeEditor({
   onContextMenu,
   onMount,
   options,
+  onSelectionChange,
 }) {
   const containerRef = useRef(null);
   const editorRef = useRef(null);
@@ -117,6 +118,16 @@ export function MonacoCodeEditor({
         onChangeRef.current?.(model.getValue());
       });
 
+      const dSel = editor.onDidChangeCursorSelection(() => {
+        if (!onSelectionChange) return;
+        const selection = editor.getSelection?.();
+        const m = editor.getModel?.();
+        if (!selection || !m) return;
+        const selectionStart = m.getOffsetAt(selection.getStartPosition());
+        const selectionEnd = m.getOffsetAt(selection.getEndPosition());
+        onSelectionChange({ selectionStart, selectionEnd });
+      });
+
       // Cmd/Ctrl + Enter support (keeps existing behavior via the passed onKeyDown).
       if (onKeyDown) {
         editor.addCommand(monaco.KeyMod.CtrlCmd | monaco.KeyCode.Enter, () => {
@@ -146,6 +157,7 @@ export function MonacoCodeEditor({
         d0?.dispose?.();
         d1?.dispose?.();
         d2?.dispose?.();
+        dSel?.dispose?.();
         cleanupMount?.();
         if (onContextMenu) el.removeEventListener('contextmenu', onDomContextMenu, true);
         if (resizeObs) resizeObs.disconnect();
@@ -204,6 +216,13 @@ export function MonacoCodeEditor({
         value={value}
         onChange={(e) => onChange?.(e.target.value)}
         onKeyDown={onKeyDown}
+        onSelect={(e) => {
+          if (!onSelectionChange) return;
+          onSelectionChange({
+            selectionStart: e.target.selectionStart ?? 0,
+            selectionEnd: e.target.selectionEnd ?? 0,
+          });
+        }}
         onContextMenu={onContextMenu}
         disabled={disabled}
         placeholder={placeholder}

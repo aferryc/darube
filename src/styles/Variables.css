@@ -12,30 +12,78 @@
   font-style: normal;
 }
 
+@font-face {
+  font-family: 'JetBrains Mono';
+  src: url('../assets/font/JetBrainsMono-Bold.ttf') format('truetype');
+  font-weight: 700;
+  font-style: normal;
+}
+
+@font-face {
+  font-family: 'JetBrains Mono';
+  src: url('../assets/font/JetBrainsMono-ExtraBold.ttf') format('truetype');
+  font-weight: 800;
+  font-style: normal;
+}
+
+/* ─────────────────────────────────────────────────────────────────
+   Cyberpunk · Light + Bold (default theme)
+   Inspired by editorial/brutalist tech posters: paper white surfaces,
+   ink-black structure, hot red accent, monospace details.
+   ───────────────────────────────────────────────────────────────── */
 :root {
   /* base surfaces */
-  --bg-dark: #0b1220;
-  --bg-sidebar: #0f172a;
-  --bg-card: #162033;
-  --bg-editor: #0d1424;
+  --bg-dark:    #f4f2ec;   /* page / canvas — warm paper */
+  --bg-sidebar: #ffffff;   /* sidebar / topbar surface */
+  --bg-card:    #ffffff;   /* cards & menus */
+  --bg-editor:  #fafaf7;   /* code editor surface */
+  --bg-hover:   #ebe7dc;   /* subtle row hover on paper */
+  --bg-elevated:#0a0a0a;   /* inverse surface (dark blocks for contrast) */
 
   /* text */
-  --text-main: #e6edf6;
-  --text-muted: #94a3b8;
+  --text-main:  #0a0a0a;   /* ink */
+  --text-muted: #6b6b6b;   /* secondary */
+  --text-faint: #a8a39a;   /* tertiary / placeholders */
+  --text-on-dark:#f4f2ec;  /* text on the inverse surface */
+  --text-on-accent:#ffffff;
 
-  /* accent */
-  --accent: #4f8cff;
-  --accent-hover: #3b74d8;
+  /* textures / decoration (theme-aware) */
+  --bg-spotlight: rgba(0, 0, 0, 0.05);
+  --bg-grid-line: rgba(10, 10, 10, 0.035);
+
+  /* icon rendering */
+  --icon-filter: brightness(0);
+
+  /* accent — primary hot red */
+  --accent:        #ff1f3d;
+  --accent-hover:  #d6122e;
+  --accent-soft:   rgba(255, 31, 61, 0.10);
+
+  /* secondary accents */
+  --accent-electric: #00d4ff;   /* status/info glow */
+  --accent-acid:     #c2ff00;   /* highlight chip */
 
   /* state */
-  --success: #22c55e;
-  --danger: #ef4444;
+  --success: #16a34a;
+  --warning: #f59e0b;
+  --danger:  #dc2626;
 
-  /* borders */
-  --border: #1e2b45;
+  /* borders — brutalist heavy */
+  --border:        #0a0a0a;          /* primary ink border */
+  --border-soft:   #e5e1d6;          /* hairline divider on paper */
+  --border-medium: #c9c4b6;
+  --border-width:  1.5px;
 
-  /* glow */
-  --shadow-soft: 0 10px 35px rgba(0,0,0,0.45);
+  /* shadow — flat brutalist offsets */
+  --shadow-soft:   3px 3px 0 0 #0a0a0a;
+  --shadow-strong: 5px 5px 0 0 #0a0a0a;
+  --shadow-accent: 4px 4px 0 0 var(--accent);
+
+  /* radii */
+  --r-sm: 4px;
+  --r-md: 8px;
+  --r-lg: 14px;
+  --r-pill: 999px;
 
   /* UI font sizes */
   --text-xs: 11px;
@@ -44,16 +92,74 @@
   --text-base: 14px;
   --text-lg: 16px;
   --text-xl: 18px;
+  --text-2xl: 22px;
+  --text-display: 28px;
 
-  /* app-wide overrides (optional, set from settings) */
+  /* fonts */
+  --font-display: 'JetBrains Mono', 'Menlo', monospace;
+  --font-mono:    'JetBrains Mono', 'Menlo', monospace;
+
+  /* syntax highlighting (fallback editor / prism) */
+  --syntax-keyword:     #d6122e;
+  --syntax-string:      #1f7a3a;
+  --syntax-number:      #b45309;
+  --syntax-function:    #1d4ed8;
+  --syntax-operator:    #0a0a0a;
+  --syntax-punctuation: #6b6b6b;
+  --syntax-comment:     #94908a;
+
+  /* app-wide overrides (set from settings) */
   --app-font-family: 'Plus Jakarta Sans', system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
   --app-font-size: 13px;
   --app-font-color: var(--text-main);
 }
 
-/* Theme variants (basic presets) */
+/* Default cyberpunk-light is :root above. data-theme="cyber-light" is an alias. */
+[data-theme="cyber-light"] {
+  /* uses defaults */
+}
+
+/* ─────────────────────────────────────────────────────────────────
+   Cyberpunk · Dark (legacy, opt-in)
+   ───────────────────────────────────────────────────────────────── */
 [data-theme="dark"] {
-  /* uses defaults above */
+  --bg-dark:    #0b1220;
+  --bg-sidebar: #0f172a;
+  --bg-card:    #121c2f;
+  --bg-editor:  #0d1424;
+  --bg-hover:   rgba(255, 255, 255, 0.06);
+  --bg-elevated:#070a12;
+
+  --text-main:  #e6edf6;
+  --text-muted: #a3b0c3;
+  --text-faint: #6e7f98;
+  --text-on-dark: #e6edf6;
+  --text-on-accent: #ffffff;
+
+  --bg-spotlight: rgba(255, 255, 255, 0.035);
+  --bg-grid-line: rgba(255, 255, 255, 0.045);
+
+  --icon-filter: brightness(0) invert(1);
+
+  --accent:        #ff1f3d;
+  --accent-hover:  #ff4a64;
+  --accent-soft:   rgba(255, 31, 61, 0.18);
+
+  --success: #22c55e;
+  --warning: #fbbf24;
+  --danger:  #ef4444;
+
+  --border:        #21314d;
+  --border-soft:   #1a2740;
+  --border-medium: #324563;
+
+  --syntax-keyword:     #ff4a64;
+  --syntax-string:      #4ade80;
+  --syntax-number:      #fbbf24;
+  --syntax-function:    #60a5fa;
+  --syntax-operator:    var(--text-main);
+  --syntax-punctuation: var(--text-muted);
+  --syntax-comment:     var(--text-faint);
 }
 
 [data-theme="ocean"] {
@@ -61,8 +167,20 @@
   --bg-sidebar: #031d32;
   --bg-card: #052743;
   --bg-editor: #031c30;
+  --text-main: #e6edf6;
+  --text-muted: #94a3b8;
+  --text-faint: #6b86a3;
+  --text-on-dark: #e6edf6;
+  --bg-hover: rgba(255, 255, 255, 0.06);
+  --bg-elevated: #030914;
+  --bg-spotlight: rgba(56, 189, 248, 0.06);
+  --bg-grid-line: rgba(255, 255, 255, 0.04);
+  --icon-filter: brightness(0) invert(1);
   --accent: #38bdf8;
   --accent-hover: #0ea5e9;
+  --border: #08395f;
+  --border-soft: #08395f;
+  --border-medium: #0b4c7f;
 }
 
 [data-theme="high-contrast"] {
@@ -72,7 +190,15 @@
   --bg-editor: #020617;
   --text-main: #ffffff;
   --text-muted: #e5e7eb;
+  --text-faint: #9ca3af;
+  --text-on-dark: #ffffff;
+  --bg-hover: rgba(255, 255, 255, 0.08);
+  --bg-elevated: #000000;
+  --bg-spotlight: rgba(255, 255, 255, 0.03);
+  --bg-grid-line: rgba(255, 255, 255, 0.06);
+  --icon-filter: brightness(0) invert(1);
   --border: #4b5563;
+  --border-soft: #4b5563;
   --accent: #f97316;
   --accent-hover: #ea580c;
 }

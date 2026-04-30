@@ -34,7 +34,7 @@ function ensureRedisLanguage(monaco) {
   if (!exists) monaco.languages.register({ id: 'darube-redis' });
 }
 
-export function RedisAutocomplete({ value, onChange, onKeyDown, onContextMenu, disabled, placeholder, style }) {
+export function RedisAutocomplete({ value, onChange, onKeyDown, onContextMenu, onSelectionChange, disabled, placeholder, style }) {
   const handleMount = useCallback((monaco, editor) => {
     ensureRedisLanguage(monaco);
 
@@ -93,8 +93,8 @@ export function RedisAutocomplete({ value, onChange, onKeyDown, onContextMenu, d
       editorRole="redis"
       onKeyDown={onKeyDown}
       onContextMenu={onContextMenu}
+      onSelectionChange={onSelectionChange}
       onMount={handleMount}
     />
   );
 }
-

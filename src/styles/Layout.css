@@ -4,6 +4,7 @@
   height: 100vh;
   width: 100%;
   min-width: 100vw;
+  background: var(--bg-dark);
 }
 
 .app-topbar {
@@ -15,31 +16,45 @@
 .platform-mac .app-topbar {
   display: flex;
   align-items: center;
-  height: 28px;
+  height: 32px;
   background: var(--bg-sidebar);
-  border-bottom: 1px solid var(--border);
+  border-bottom: var(--border-width) solid var(--border);
   -webkit-app-region: drag;
   position: relative;
 }
 
 .platform-mac .app-topbar-icon {
-  height: 23px;
-  width: 23px;
-  opacity: 0.9;
+  height: 22px;
+  width: 22px;
+  opacity: 1;
   /* Place after macOS traffic lights. Keep in sync with `trafficLightPosition` in main.js. */
   margin-left: 78px;
-  margin-top: 8px;
+  margin-top: 5px;
+  filter: var(--icon-filter);
 }
 
 .platform-mac .app-topbar-title {
-  height: 23px;
-  width: 23px;
-  opacity: 0.9;
-  /* Place after macOS traffic lights. Keep in sync with `trafficLightPosition` in main.js. */
-  margin-left: 3px;
-  margin-top: 10px;
-  font-family: var(--font-family);
-  font-size: 14px;
+  margin-left: 8px;
+  margin-top: 8px;
+  font-family: var(--font-display);
+  font-size: 12px;
+  font-weight: 800;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: var(--text-main);
+}
+
+.platform-mac .app-topbar::after {
+  /* tiny accent square on the right edge of the topbar — brutalist marker */
+  content: "";
+  position: absolute;
+  right: 14px;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 8px;
+  height: 8px;
+  background: var(--accent);
+  border-radius: 1px;
 }
 
 .app-body {
@@ -73,18 +88,33 @@
   display: flex;
   flex-direction: column;
   align-items: stretch;
+  /* Subtle blueprint grid texture on warm paper, with a single accent corner glow */
   background:
     radial-gradient(
       circle at top right,
-      rgba(59, 130, 246, 0.12),
-      transparent 40%
+      rgba(255, 31, 61, 0.06),
+      transparent 38%
     ),
     radial-gradient(
       circle at bottom left,
-      rgba(16, 185, 129, 0.08),
-      transparent 40%
+      var(--bg-spotlight),
+      transparent 35%
     ),
-    #0f172a;
+    repeating-linear-gradient(
+      0deg,
+      transparent 0,
+      transparent 31px,
+      var(--bg-grid-line) 31px,
+      var(--bg-grid-line) 32px
+    ),
+    repeating-linear-gradient(
+      90deg,
+      transparent 0,
+      transparent 31px,
+      var(--bg-grid-line) 31px,
+      var(--bg-grid-line) 32px
+    ),
+    var(--bg-dark);
   overflow: hidden;
 }
 
@@ -102,12 +132,11 @@
 }
 
 .gutter {
-  background-color: var(--bg-sidebar);
+  background-color: var(--border);
   background-repeat: no-repeat;
   background-position: 50%;
-  border-left: 1px solid var(--border);
-  border-top: 1px solid var(--border);
-  transition: background-color 0.2s;
+  border: 0;
+  transition: background-color 0.15s ease;
 }
 
 .gutter:hover {
@@ -116,12 +145,12 @@
 
 .gutter.gutter-horizontal {
   cursor: col-resize;
-  background-image: url("data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAUAAAAeCAYAAADkftS9AAAAIklEQVQoU2M4c+bMfxAGAgYYmwGrIIiDjrELjbd5EQcjOQAQn5oFqA7vbwAAAABJRU5ErkJggg==");
+  width: 3px !important;
 }
 
 .gutter.gutter-vertical {
   cursor: row-resize;
-  background-image: url("data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAB4AAAAFAQMAAABo7865AAAABlBMVEVHcEzMzMzyCB2iAAAAAXRSTlMAQObYZgAAABBJREFUeF5jOAMEEAIEEFBgFcgAIF7I6XwAAAAASUVORK5CYII=");
+  height: 3px !important;
 }
 
 .pane {
@@ -140,9 +169,10 @@
 .settings-view {
   display: flex;
   flex-direction: column;
-  padding: 16px 20px;
+  padding: 20px 24px;
   height: 100%;
   box-sizing: border-box;
+  background: var(--bg-card);
 }
 
 .settings-body {

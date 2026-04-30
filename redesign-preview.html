@@ -1,0 +1,399 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Darube — Cyberpunk Light Redesign Preview</title>
+  <link rel="stylesheet" href="/src/styles/Variables.css" />
+  <link rel="stylesheet" href="/src/styles/Reset.css" />
+  <link rel="stylesheet" href="/src/styles/Layout.css" />
+  <link rel="stylesheet" href="/src/styles/Sidebar.css" />
+  <link rel="stylesheet" href="/src/styles/Tabs.css" />
+  <link rel="stylesheet" href="/src/styles/Editor.css" />
+  <link rel="stylesheet" href="/src/styles/Results.css" />
+  <style>
+    /* Tiny standalone helpers — only for the preview, not part of the app */
+    .preview-hero {
+      padding: 28px 32px 20px;
+      border-bottom: 1.5px solid var(--border);
+      background: var(--bg-card);
+    }
+    .preview-hero h1 {
+      font-family: var(--font-display);
+      font-size: 36px;
+      font-weight: 800;
+      letter-spacing: -0.02em;
+      text-transform: uppercase;
+      line-height: 1;
+      color: var(--text-main);
+      display: flex;
+      align-items: baseline;
+      gap: 14px;
+    }
+    .preview-hero h1 .count {
+      font-family: var(--font-mono);
+      font-size: 14px;
+      font-weight: 700;
+      letter-spacing: 0.1em;
+      color: var(--text-on-accent);
+      background: var(--accent);
+      padding: 5px 10px;
+      border-radius: 2px;
+      border: 1.5px solid var(--border);
+    }
+    .preview-hero p {
+      margin-top: 8px;
+      color: var(--text-muted);
+      font-family: var(--font-mono);
+      font-size: 11px;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+    }
+    .preview-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+      gap: 16px;
+      padding: 20px 32px 40px;
+    }
+    .conn-card {
+      background: var(--bg-card);
+      border: 1.5px solid var(--border);
+      border-radius: var(--r-sm);
+      padding: 18px;
+      box-shadow: 4px 4px 0 0 var(--border);
+      transition: all .12s ease;
+      cursor: pointer;
+      position: relative;
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+    }
+    .conn-card:hover {
+      transform: translate(-2px, -2px);
+      box-shadow: 6px 6px 0 0 var(--accent);
+    }
+    .conn-card.active {
+      box-shadow: 5px 5px 0 0 var(--accent);
+    }
+    .conn-card .badge-row {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+    .conn-card .type-badge {
+      font-family: var(--font-mono);
+      font-size: 9px;
+      font-weight: 800;
+      letter-spacing: 0.18em;
+      text-transform: uppercase;
+      padding: 3px 7px;
+      border: 1px solid var(--border);
+      background: var(--bg-elevated);
+      color: var(--text-on-dark);
+      border-radius: 2px;
+    }
+    .conn-card .updated {
+      font-family: var(--font-mono);
+      font-size: 9px;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+      color: var(--text-muted);
+    }
+    .conn-card h2 {
+      font-family: var(--font-display);
+      font-size: 20px;
+      font-weight: 800;
+      letter-spacing: -0.01em;
+      text-transform: uppercase;
+      color: var(--text-main);
+      line-height: 1.05;
+    }
+    .conn-card h2 .ver {
+      color: var(--accent);
+      font-size: 14px;
+      letter-spacing: 0.04em;
+    }
+    .conn-card .meta {
+      font-family: var(--font-mono);
+      font-size: 10px;
+      color: var(--text-muted);
+      letter-spacing: 0.04em;
+    }
+    .conn-card .actions {
+      display: flex;
+      gap: 8px;
+      align-items: center;
+      margin-top: 4px;
+    }
+    .conn-card .pill {
+      font-family: var(--font-mono);
+      font-size: 9px;
+      font-weight: 800;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+      padding: 5px 10px;
+      border-radius: 2px;
+      border: 1.5px solid var(--border);
+      background: var(--bg-card);
+      color: var(--text-main);
+      cursor: pointer;
+      box-shadow: 2px 2px 0 0 var(--border);
+    }
+    .conn-card .pill.primary {
+      background: var(--bg-elevated);
+      color: var(--text-on-dark);
+      box-shadow: 2px 2px 0 0 var(--accent);
+    }
+    .conn-card .pill.danger {
+      background: var(--bg-card);
+      color: var(--accent);
+      border-color: var(--accent);
+    }
+    .conn-card .icon-square {
+      width: 56px; height: 56px;
+      background: var(--bg-elevated);
+      border: 1.5px solid var(--border);
+      display: flex; align-items: center; justify-content: center;
+      font-family: var(--font-mono); font-weight: 800;
+      color: var(--accent);
+      font-size: 22px;
+    }
+    .conn-card.add {
+      border-style: dashed;
+      box-shadow: none;
+      align-items: center;
+      justify-content: center;
+      text-align: center;
+      min-height: 220px;
+    }
+    .conn-card.add h2 { color: var(--text-muted); }
+    .conn-card.add:hover h2 { color: var(--accent); }
+    /* override generic <button> brutalist style for inline create button */
+    .conn-card.add button { font-size: 10px; }
+
+    /* sample sidebar items for preview */
+    .preview-sample-folder { padding: 10px 14px; font-family: var(--font-mono); font-size: 10px; font-weight: 800; letter-spacing: 0.18em; text-transform: uppercase; color: var(--text-muted); display:flex; align-items:center; gap:8px; }
+    .preview-sample-folder .marker { width: 4px; height: 14px; background: var(--border); }
+  </style>
+</head>
+<body>
+  <div class="app-container platform-mac">
+    <!-- TOP BAR -->
+    <div class="app-topbar">
+      <span class="app-topbar-icon" style="background: var(--text-main); display:inline-block; border-radius: 2px; margin-top: 6px;"></span>
+      <div class="app-topbar-title">DARUBE</div>
+    </div>
+
+    <div class="app-body">
+      <!-- SIDEBAR -->
+      <div class="sidebar-wrapper" style="width: 280px;">
+        <div class="sidebar">
+          <div class="sidebar-header">
+            <div>
+              <span>Conns</span>
+              <span class="sidebar-header-count">[07]</span>
+            </div>
+            <div>
+              <button class="btn-icon" title="Help">?</button>
+              <button class="btn-icon" title="Settings">⚙</button>
+              <button class="btn-icon" title="New">+</button>
+            </div>
+          </div>
+
+          <div class="sidebar-content">
+            <button class="new-folder-btn">+ New Folder</button>
+            <button class="new-script-btn">&lt;/&gt; New Script</button>
+
+            <div class="preview-sample-folder"><span class="marker"></span>▾ Production · 3</div>
+
+            <div class="connection-item active">
+              <div class="connection-item-header">
+                <span class="status-dot connected"></span>
+                <span>users-db</span>
+              </div>
+              <div class="connection-item-controls">
+                <span style="opacity:.6">✎</span><span style="opacity:.6">⟳</span><span style="opacity:.6">×</span>
+                <div class="flex-grow"></div>
+                <button class="tab-connect-btn secondary">Stop</button>
+              </div>
+            </div>
+
+            <div class="connection-item">
+              <div class="connection-item-header">
+                <span class="status-dot disconnected"></span>
+                <span>analytics</span>
+              </div>
+              <div class="connection-item-controls">
+                <span style="opacity:.6">✎</span><span style="opacity:.6">⟳</span><span style="opacity:.6">×</span>
+                <div class="flex-grow"></div>
+                <button class="tab-connect-btn">Connect</button>
+              </div>
+            </div>
+
+            <div class="connection-item">
+              <div class="connection-item-header">
+                <span class="status-dot connected"></span>
+                <span>cache · redis</span>
+              </div>
+              <div class="connection-item-controls">
+                <span style="opacity:.6">✎</span><span style="opacity:.6">⟳</span><span style="opacity:.6">×</span>
+                <div class="flex-grow"></div>
+                <button class="tab-connect-btn secondary">Stop</button>
+              </div>
+            </div>
+
+            <div class="preview-sample-folder"><span class="marker"></span>▾ Staging · 2</div>
+
+            <div class="connection-item in-folder">
+              <div class="connection-item-header">
+                <span class="status-dot connected"></span>
+                <span>orders-stg</span>
+              </div>
+              <div class="connection-item-controls">
+                <span style="opacity:.6">✎</span><span style="opacity:.6">⟳</span><span style="opacity:.6">×</span>
+                <div class="flex-grow"></div>
+                <button class="tab-connect-btn secondary">Stop</button>
+              </div>
+            </div>
+
+            <div class="connection-item in-folder">
+              <div class="connection-item-header">
+                <span class="status-dot disconnected"></span>
+                <span>billing-api · http</span>
+              </div>
+              <div class="connection-item-controls">
+                <span style="opacity:.6">✎</span><span style="opacity:.6">⟳</span><span style="opacity:.6">×</span>
+                <div class="flex-grow"></div>
+                <button class="tab-connect-btn">Connect</button>
+              </div>
+            </div>
+          </div>
+        </div>
+        <button class="sidebar-toggle-btn">‹</button>
+      </div>
+
+      <!-- MAIN AREA -->
+      <div class="main-area">
+        <!-- Tabs -->
+        <div class="tabs-bar">
+          <div class="tabs-scroll">
+            <div class="tab active">users-db ▸ select_active <span class="close-tab">×</span></div>
+            <div class="tab">orders-stg ▸ migration <span class="close-tab">×</span></div>
+            <div class="tab">script_3 <span class="close-tab">×</span></div>
+            <div class="tab add-tab">+</div>
+          </div>
+          <div class="tabs-actions">
+            <button class="tab-action-btn">▶ Run</button>
+            <button class="tab-action-btn secondary">Export</button>
+          </div>
+        </div>
+
+        <!-- Hero (replaces the Pokemon "My NPCs" but for connections) -->
+        <div class="preview-hero">
+          <h1>My Connections <span class="count">[07]</span></h1>
+          <p>Pinned · last sync 2 min ago · engine :3000</p>
+        </div>
+
+        <!-- Connection cards grid -->
+        <div class="preview-grid">
+          <div class="conn-card add">
+            <div class="icon-square" style="border-style: dashed; color: var(--text-muted);">+</div>
+            <h2>New<br/>Connection</h2>
+            <button>Create</button>
+          </div>
+
+          <div class="conn-card active">
+            <div class="badge-row">
+              <span class="type-badge">postgres</span>
+              <span class="updated">Updated · Apr 29</span>
+            </div>
+            <div class="icon-square">PG</div>
+            <h2>users-db <span class="ver">v.1.0</span></h2>
+            <div class="meta">postgres://prod-cluster:5432/users</div>
+            <div class="actions">
+              <button class="pill primary">Test SQL</button>
+              <button class="pill">Edit</button>
+              <button class="pill danger">Delete</button>
+            </div>
+          </div>
+
+          <div class="conn-card">
+            <div class="badge-row">
+              <span class="type-badge">redis</span>
+              <span class="updated">Updated · Apr 29</span>
+            </div>
+            <div class="icon-square">RD</div>
+            <h2>cache <span class="ver">v.2.1</span></h2>
+            <div class="meta">redis://prod-cache:6379</div>
+            <div class="actions">
+              <button class="pill primary">Test SQL</button>
+              <button class="pill">Edit</button>
+              <button class="pill danger">Delete</button>
+            </div>
+          </div>
+
+          <div class="conn-card">
+            <div class="badge-row">
+              <span class="type-badge">http</span>
+              <span class="updated">Updated · Apr 29</span>
+            </div>
+            <div class="icon-square">API</div>
+            <h2>billing-api <span class="ver">v.2.1</span></h2>
+            <div class="meta">https://api.billing.internal</div>
+            <div class="actions">
+              <button class="pill primary">Test SQL</button>
+              <button class="pill">Edit</button>
+              <button class="pill danger">Delete</button>
+            </div>
+          </div>
+
+          <div class="conn-card">
+            <div class="badge-row">
+              <span class="type-badge">mysql</span>
+              <span class="updated">Updated · Apr 29</span>
+            </div>
+            <div class="icon-square">MY</div>
+            <h2>analytics <span class="ver">v.2.1</span></h2>
+            <div class="meta">mysql://analytics-rw:3306/events</div>
+            <div class="actions">
+              <button class="pill primary">Test SQL</button>
+              <button class="pill">Edit</button>
+              <button class="pill danger">Delete</button>
+            </div>
+          </div>
+
+          <div class="conn-card">
+            <div class="badge-row">
+              <span class="type-badge">grpc</span>
+              <span class="updated">Updated · Apr 29</span>
+            </div>
+            <div class="icon-square">RPC</div>
+            <h2>order-svc <span class="ver">v.1.0</span></h2>
+            <div class="meta">order-svc.cluster.local:50051</div>
+            <div class="actions">
+              <button class="pill primary">Test SQL</button>
+              <button class="pill">Edit</button>
+              <button class="pill danger">Delete</button>
+            </div>
+          </div>
+
+          <div class="conn-card">
+            <div class="badge-row">
+              <span class="type-badge">sqlite</span>
+              <span class="updated">Updated · Apr 29</span>
+            </div>
+            <div class="icon-square">SQ</div>
+            <h2>local-cache <span class="ver">v.1.0</span></h2>
+            <div class="meta">~/.darube/local.db</div>
+            <div class="actions">
+              <button class="pill primary">Test SQL</button>
+              <button class="pill">Edit</button>
+              <button class="pill danger">Delete</button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</body>
+</html>
