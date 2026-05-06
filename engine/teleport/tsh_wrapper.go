@@ -389,6 +389,30 @@ func EnsureAndBuildDSN(cfg store.ConnectionConfig, baseDSN string) (string, cont
 		return "", nil, fmt.Errorf("teleport: %w", err)
 	}
 
+	// Avoid spawning long-running `tsh proxy db` when the user is not logged in.
+	// This is roughly equivalent to `tsh status` and checks local cert expiry.
+	st := Status(cfg.TeleportProfile)
+	if !st.LoggedIn && strings.TrimSpace(cfg.TeleportProfile) != "" {
+		// Backwards compatibility: older configs may store a cluster name (not a proxy profile name).
+		// If the requested profile can't be loaded, fall back to the active profile.
+		if st2 := Status(""); st2.LoggedIn {
+			st = st2
+		}
+	}
+	if !st.LoggedIn {
+		proxy := strings.TrimSpace(cfg.TeleportProfile)
+		if proxy == "" {
+			proxy = strings.TrimSpace(st.Proxy)
+		}
+		if proxy != "" {
+			return "", nil, fmt.Errorf("teleport: not logged in (run `tsh login --proxy=%s`)", proxy)
+		}
+		if st.Error != "" {
+			return "", nil, fmt.Errorf("teleport: not logged in (%s)", st.Error)
+		}
+		return "", nil, fmt.Errorf("teleport: not logged in (run `tsh login`)")
+	}
+
 	// Step 1: prefer an authenticated local tunnel. This is the most compatible
 	// way to support 3rd party/GUI database clients with TLS routing.
 	if info, cancel, err := startDBProxy(context.Background(), tshPath, cfg, true); err == nil {

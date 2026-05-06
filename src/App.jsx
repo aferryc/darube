@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import Split from "react-split";
 
 import { SqlAutocomplete } from "./components/SqlAutocomplete";
@@ -16,6 +16,7 @@ import {
   ExportModal,
   HelpModal,
   ConnectionSwitchModal,
+  TeleportLoginModal,
 } from "./components/Modals";
 import { SettingsModal } from "./components/SettingsModal";
 
@@ -92,6 +93,8 @@ function App() {
   const [tableSizeStatus, setTableSizeStatus] = useState(null);
   const [formData, setFormData] = useState(EMPTY_FORM);
   const [editingId, setEditingId] = useState(null);
+  const [teleportLoginPrompt, setTeleportLoginPrompt] = useState(null);
+  const teleportLoginReqRef = useRef(null);
 
   // ── Hooks ─────────────────────────────────────────────────────────────────
   const connections = useConnections(apiUrl);
@@ -119,6 +122,70 @@ function App() {
     const dt = new Date(value);
     if (Number.isNaN(dt.getTime())) return "";
     return dt.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
+  };
+
+  const getTeleportProxyForProfileId = (profileId) => {
+    const list = settings?.teleport_profiles || [];
+    const p = list.find((x) => String(x?.id || "") === String(profileId || ""));
+    return String(p?.profile || "").trim();
+  };
+
+  const fetchTeleportStatus = async (profileName) => {
+    const p = String(profileName || "").trim();
+    const qs = p ? `?profile=${encodeURIComponent(p)}` : "";
+    const res = await fetch(`${apiUrl}/api/teleport/status${qs}`);
+    const data = await res.json().catch(() => ({}));
+    return data || {};
+  };
+
+  const requestTeleportLogin = ({ defaultProxy, reason }) => {
+    if (teleportLoginReqRef.current?.promise) return teleportLoginReqRef.current.promise;
+    let resolve = null;
+    const promise = new Promise((r) => {
+      resolve = r;
+    });
+    teleportLoginReqRef.current = { promise, resolve };
+    setTeleportLoginPrompt({
+      defaultProxy: String(defaultProxy || ""),
+      reason: String(reason || ""),
+    });
+    return promise;
+  };
+
+  const resolveTeleportLogin = (ok) => {
+    const req = teleportLoginReqRef.current;
+    teleportLoginReqRef.current = null;
+    setTeleportLoginPrompt(null);
+    req?.resolve?.(!!ok);
+  };
+
+  const ensureTeleportLogin = async ({ profileName, fallbackProxy, reason } = {}) => {
+    const wantedProfile = String(profileName || "").trim();
+    const fallback = String(fallbackProxy || "").trim();
+
+    const st = await fetchTeleportStatus(wantedProfile);
+    if (st?.tsh_available === false) {
+      alert(st?.error || "Teleport (tsh) is not available on this machine.");
+      return false;
+    }
+    if (st?.logged_in) return true;
+
+    const proxyGuess =
+      String(st?.proxy || "").trim() ||
+      wantedProfile ||
+      fallback;
+
+    const ok = await requestTeleportLogin({
+      defaultProxy: proxyGuess,
+      reason: String(reason || st?.error || "Teleport session is missing or expired."),
+    });
+    if (!ok) return false;
+
+    const st2 = await fetchTeleportStatus(wantedProfile || proxyGuess);
+    if (st2?.logged_in) return true;
+
+    alert(st2?.error || "Teleport login did not complete. Please try again.");
+    return false;
   };
 
   // ── Initial polling ───────────────────────────────────────────────────────
@@ -407,6 +474,16 @@ function App() {
         }
       }
 
+      if (isTeleport) {
+        const proxy = getTeleportProxyForProfileId(formData.teleport_profile_id) || formData.teleport_profile;
+        const ok = await ensureTeleportLogin({
+          profileName: proxy,
+          fallbackProxy: proxy,
+          reason: "Teleport login is required before connecting.",
+        });
+        if (!ok) return;
+      }
+
       const isRedis = formData.db_type === "redis";
       const base = isRedis
         ? `${apiUrl}/api/redis`
@@ -518,6 +595,16 @@ function App() {
         }
       }
 
+      if (isTeleport) {
+        const proxy = getTeleportProxyForProfileId(formData.teleport_profile_id) || formData.teleport_profile;
+        const ok = await ensureTeleportLogin({
+          profileName: proxy,
+          fallbackProxy: proxy,
+          reason: "Teleport login is required before testing the connection.",
+        });
+        if (!ok) return;
+      }
+
       const isRedis = formData.db_type === "redis";
       const url = isRedis
         ? `${apiUrl}/api/redis/test`
@@ -585,9 +672,23 @@ function App() {
 
   const handleDisconnect = (id) =>
     connections.handleDisconnect(id, activeId, setActiveId);
-  const handleReconnect = (id) => {
-    connections.handleReconnect(id);
-    setActiveId(id);
+  const handleReconnect = async (id) => {
+    try {
+      const conn = connections.connections.find((c) => c.id === id);
+      if (conn?.teleport_enabled) {
+        const proxy = getTeleportProxyForProfileId(conn.teleport_profile_id) || conn.teleport_profile;
+        const ok = await ensureTeleportLogin({
+          profileName: proxy,
+          fallbackProxy: proxy,
+          reason: "Teleport login is required before connecting.",
+        });
+        if (!ok) return;
+      }
+      await connections.handleReconnect(id);
+      setActiveId(id);
+    } catch (err) {
+      alert("Failed to connect: " + (err?.message || String(err)));
+    }
   };
 
   const handleConnectionClick = async (id, forceExpand) => {
@@ -1523,6 +1624,14 @@ function App() {
         }}
       />
       <HelpModal show={showHelpModal} onClose={() => setShowHelpModal(false)} />
+      <TeleportLoginModal
+        show={!!teleportLoginPrompt}
+        apiUrl={apiUrl}
+        defaultProxy={teleportLoginPrompt?.defaultProxy || ""}
+        reason={teleportLoginPrompt?.reason || ""}
+        onCancel={() => resolveTeleportLogin(false)}
+        onSuccess={() => resolveTeleportLogin(true)}
+      />
       <ContextMenu
         contextMenu={ctxMenu.contextMenu}
         onAction={handleMenuAction}

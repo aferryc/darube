@@ -127,6 +127,7 @@ func buildMux() *http.ServeMux {
 	mux.HandleFunc("PUT /api/settings/teleport-profiles/{id}", api.UpdateTeleportProfileHandler)
 	mux.HandleFunc("DELETE /api/settings/teleport-profiles/{id}", api.DeleteTeleportProfileHandler)
 	mux.HandleFunc("GET /api/teleport/detect", api.TeleportDetectHandler)
+	mux.HandleFunc("GET /api/teleport/status", api.TeleportStatusHandler)
 	mux.HandleFunc("POST /api/teleport/login", api.TeleportLoginHandler)
 	mux.HandleFunc("GET /api/teleport/databases", api.TeleportListDatabasesHandler)
 

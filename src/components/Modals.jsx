@@ -1,3 +1,5 @@
+import { useEffect, useState } from "react";
+
 export function ContextMenu({ contextMenu, onAction }) {
   if (!contextMenu.visible) return null;
 
@@ -197,6 +199,140 @@ export function HelpModal({ show, onClose }) {
         <div className="modal-footer">
           <button type="button" className="secondary" onClick={onClose}>Close</button>
         </div>
+      </div>
+    </div>
+  );
+}
+
+export function TeleportLoginModal({
+  show,
+  apiUrl,
+  defaultProxy,
+  reason,
+  onCancel,
+  onSuccess,
+}) {
+  const [proxy, setProxy] = useState(defaultProxy || "");
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState("");
+  const [output, setOutput] = useState("");
+
+  useEffect(() => {
+    if (!show) return;
+    setProxy(defaultProxy || "");
+    setLoading(false);
+    setError("");
+    setOutput("");
+  }, [show, defaultProxy]);
+
+  if (!show) return null;
+
+  const doLogin = async (e) => {
+    e?.preventDefault?.();
+    const proxyHost = String(proxy || "").trim();
+    if (!proxyHost) {
+      setError("Proxy is required (e.g. mytenant.teleport.sh)");
+      return;
+    }
+
+    setLoading(true);
+    setError("");
+    setOutput("");
+    try {
+      const res = await fetch(`${apiUrl}/api/teleport/login`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ proxy: proxyHost }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (data?.success) {
+        setOutput(String(data.output || ""));
+        onSuccess?.({ output: String(data.output || ""), proxy: proxyHost });
+        return;
+      }
+      setError(String(data?.error || "Teleport login failed"));
+      if (data?.output) setOutput(String(data.output));
+    } catch (err) {
+      setError(err?.message ? String(err.message) : "Teleport login failed");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  return (
+    <div className="modal-overlay">
+      <div className="modal-content w-450">
+        <div className="modal-header">
+          <div className="modal-header-left">
+            <h3>Teleport Login</h3>
+            <span className="settings-subtitle">
+              Darube uses <code>tsh</code> for Teleport database access.
+            </span>
+          </div>
+          <button
+            type="button"
+            className="btn-icon close-btn"
+            onClick={() => onCancel?.()}
+            aria-label="Close"
+            disabled={loading}
+          >
+            ✕
+          </button>
+        </div>
+
+        {reason && (
+          <div className="form-help-text" style={{ marginBottom: 10 }}>
+            {reason}
+          </div>
+        )}
+
+        <form onSubmit={doLogin}>
+          <div className="form-group">
+            <label>Proxy Host</label>
+            <input
+              value={proxy}
+              onChange={(e) => setProxy(e.target.value)}
+              placeholder="mytenant.teleport.sh"
+              autoFocus
+            />
+            <div className="form-help-text">
+              This may open your browser for SSO/MFA. If your cluster uses a custom HTTPS port, include it (e.g. <code>proxy.example.com:3080</code>).
+            </div>
+          </div>
+
+          {error && (
+            <div className="form-help-text" style={{ color: "var(--danger)", marginTop: 10 }}>
+              {error}
+            </div>
+          )}
+          {output && (
+            <pre
+              style={{
+                marginTop: 10,
+                maxHeight: 140,
+                overflow: "auto",
+                padding: 10,
+                borderRadius: 10,
+                background: "rgba(255,255,255,0.04)",
+                border: "1px solid var(--border)",
+                whiteSpace: "pre-wrap",
+                color: "var(--text-muted)",
+                fontSize: 12,
+              }}
+            >
+              {output}
+            </pre>
+          )}
+
+          <div className="modal-footer no-border">
+            <button type="button" className="secondary" onClick={() => onCancel?.()} disabled={loading}>
+              Cancel
+            </button>
+            <button type="submit" disabled={loading}>
+              {loading ? "Logging in..." : "Login"}
+            </button>
+          </div>
+        </form>
       </div>
     </div>
   );

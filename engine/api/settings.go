@@ -242,6 +242,30 @@ func TeleportDetectHandler(w http.ResponseWriter, r *http.Request) {
 	}, http.StatusOK)
 }
 
+// TeleportStatusHandler handles GET /api/teleport/status
+// Optional query param: ?profile=<name> to inspect a specific tsh profile.
+// Returns a UI-friendly equivalent of `tsh status`.
+func TeleportStatusHandler(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodGet {
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+	profileName := r.URL.Query().Get("profile")
+	st := teleport.Status(profileName)
+	sendJSONResponse(w, map[string]interface{}{
+		"success":       true,
+		"tsh_available": st.TSHAvailable,
+		"tsh_path":      st.TSHPath,
+		"logged_in":     st.LoggedIn,
+		"cluster":       st.Cluster,
+		"user":          st.User,
+		"profile":       st.Profile,
+		"proxy":         st.Proxy,
+		"expires_at":    st.ExpiresAt,
+		"error":         st.Error,
+	}, http.StatusOK)
+}
+
 // DeleteTeleportProfileHandler handles DELETE /api/settings/teleport-profiles/{id}
 func DeleteTeleportProfileHandler(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodDelete {
