@@ -204,36 +204,58 @@ export function HelpModal({ show, onClose }) {
   );
 }
 
+// hostLooksReal returns true when a stored profile value looks like an actual
+// proxy host (e.g. "teleport.example.com") rather than a display label
+// (e.g. "StockbitTeleport"). Only real hosts are passed to `tsh login --proxy`.
+function hostLooksReal(value) {
+  const v = String(value || "").trim();
+  return v.includes(".") || v.includes(":");
+}
+
 export function TeleportLoginModal({
   show,
   apiUrl,
-  defaultProxy,
+  profiles,
+  defaultProfileId,
   reason,
   onCancel,
   onSuccess,
 }) {
-  const [proxy, setProxy] = useState(defaultProxy || "");
+  const list = Array.isArray(profiles) ? profiles : [];
+  const [profileId, setProfileId] = useState(defaultProfileId || "");
+  const [password, setPassword] = useState("");
+  const [otp, setOtp] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [output, setOutput] = useState("");
 
   useEffect(() => {
     if (!show) return;
-    setProxy(defaultProxy || "");
+    // Preselect the connection's profile, or the only/first profile available.
+    const initial =
+      defaultProfileId ||
+      (list.length === 1 ? String(list[0]?.id || "") : "");
+    setProfileId(initial);
+    setPassword("");
+    setOtp("");
     setLoading(false);
     setError("");
     setOutput("");
-  }, [show, defaultProxy]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [show, defaultProfileId]);
 
   if (!show) return null;
 
+  const selected = list.find((p) => String(p?.id || "") === String(profileId || ""));
+
   const doLogin = async (e) => {
     e?.preventDefault?.();
-    const proxyHost = String(proxy || "").trim();
-    if (!proxyHost) {
-      setError("Proxy is required (e.g. mytenant.teleport.sh)");
-      return;
-    }
+    // Proxy/user come from the selected profile — never asked here. The proxy
+    // is only sent when it looks like a real host; otherwise the engine runs a
+    // bare `tsh login` against the current profile on disk.
+    const rawProfile = selected?.profile || selected?.cluster || "";
+    const proxyHost = hostLooksReal(rawProfile) ? String(rawProfile).trim() : "";
+    const loginUser = String(selected?.user || "").trim();
 
     setLoading(true);
     setError("");
@@ -242,12 +264,20 @@ export function TeleportLoginModal({
       const res = await fetch(`${apiUrl}/api/teleport/login`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ proxy: proxyHost }),
+        body: JSON.stringify({
+          proxy: proxyHost,
+          user: loginUser,
+          password: String(password || ""),
+          otp: String(otp || "").trim(),
+        }),
       });
       const data = await res.json().catch(() => ({}));
+      // Never keep the secret around longer than the request.
+      setPassword("");
+      setOtp("");
       if (data?.success) {
         setOutput(String(data.output || ""));
-        onSuccess?.({ output: String(data.output || ""), proxy: proxyHost });
+        onSuccess?.({ output: String(data.output || ""), profileId });
         return;
       }
       setError(String(data?.error || "Teleport login failed"));
@@ -288,15 +318,57 @@ export function TeleportLoginModal({
 
         <form onSubmit={doLogin}>
           <div className="form-group">
-            <label>Proxy Host</label>
+            <label>Teleport Profile</label>
+            {list.length === 0 ? (
+              <div className="form-help-text">
+                No Teleport profiles yet. Add one under <strong>Settings → Teleport</strong> (cluster, user, and profile), then log in here.
+              </div>
+            ) : (
+              <>
+                <select
+                  value={profileId}
+                  onChange={(e) => setProfileId(e.target.value)}
+                  autoFocus
+                >
+                  <option value="">Use current tsh profile</option>
+                  {list.map((p) => (
+                    <option key={p.id} value={p.id}>
+                      {p.name || p.profile || p.cluster || p.id}
+                    </option>
+                  ))}
+                </select>
+                {selected && (
+                  <div className="form-help-text">
+                    {selected.cluster ? <>Cluster <code>{selected.cluster}</code>. </> : null}
+                    {selected.user ? <>User <code>{selected.user}</code>.</> : null}
+                  </div>
+                )}
+              </>
+            )}
+          </div>
+
+          <div className="form-group">
+            <label>Password</label>
             <input
-              value={proxy}
-              onChange={(e) => setProxy(e.target.value)}
-              placeholder="mytenant.teleport.sh"
-              autoFocus
+              type="password"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              placeholder="Teleport account password"
+              autoComplete="current-password"
+            />
+          </div>
+
+          <div className="form-group">
+            <label>OTP Code <span className="settings-subtitle">(if MFA enabled)</span></label>
+            <input
+              value={otp}
+              onChange={(e) => setOtp(e.target.value)}
+              placeholder="6-digit code from your authenticator"
+              inputMode="numeric"
+              autoComplete="one-time-code"
             />
             <div className="form-help-text">
-              This may open your browser for SSO/MFA. If your cluster uses a custom HTTPS port, include it (e.g. <code>proxy.example.com:3080</code>).
+              Leave Password &amp; OTP blank for browser-based SSO logins.
             </div>
           </div>
 

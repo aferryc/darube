@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef } from "react";
 import { getTargetTable } from "../utils/queryUtils";
 import { formatBytes } from "../utils/formatBytes";
+import { isTeleportAuthError } from "../utils/teleport";
 
 const EMPTY_TAB = (n, id, type = "query") => ({
   id,
@@ -21,7 +22,7 @@ const EMPTY_TAB = (n, id, type = "query") => ({
   targetTable: null,
 });
 
-export function useTabs(apiUrl, activeId, setLoading, settings) {
+export function useTabs(apiUrl, activeId, setLoading, settings, teleportRecoverRef) {
   const [tabs, setTabs] = useState([EMPTY_TAB(1, "tab-1")]);
   const [activeTabId, setActiveTabId] = useState("tab-1");
   const [editingTabId, setEditingTabId] = useState(null);
@@ -337,13 +338,30 @@ export function useTabs(apiUrl, activeId, setLoading, settings) {
           targetTable: null,
         });
       } else {
-        const res = await fetch(url, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ [bodyKey]: finalQuery }),
-          signal: controller.signal,
-        });
-        const data = await res.json();
+        const runQuery = async () => {
+          const res = await fetch(url, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ [bodyKey]: finalQuery }),
+            signal: controller.signal,
+          });
+          return res.json();
+        };
+
+        let data = await runQuery();
+
+        // If the engine reports an expired/missing Teleport session, open the
+        // in-app login modal and retry once instead of pushing the user to the
+        // terminal.
+        if (
+          data &&
+          data.success === false &&
+          isTeleportAuthError(data.error) &&
+          teleportRecoverRef?.current
+        ) {
+          const recovered = await teleportRecoverRef.current(targetCId);
+          if (recovered) data = await runQuery();
+        }
 
         if (!isRedis && data.rows) {
           data.rows = data.rows.map((r) => {
@@ -411,16 +429,29 @@ export function useTabs(apiUrl, activeId, setLoading, settings) {
     const controller = new AbortController();
     activeRequestRef.current = controller;
     try {
-      const res = await fetch(
-        `${apiUrl}/api/connections/${targetCId}/explain`,
-        {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ query: finalQuery }),
-          signal: controller.signal,
-        },
-      );
-      const data = await res.json();
+      const runExplain = async () => {
+        const res = await fetch(
+          `${apiUrl}/api/connections/${targetCId}/explain`,
+          {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ query: finalQuery }),
+            signal: controller.signal,
+          },
+        );
+        return res.json();
+      };
+
+      let data = await runExplain();
+      if (
+        data &&
+        data.success === false &&
+        isTeleportAuthError(data.error) &&
+        teleportRecoverRef?.current
+      ) {
+        const recovered = await teleportRecoverRef.current(targetCId);
+        if (recovered) data = await runExplain();
+      }
       const durationMs = performance.now() - t0;
       if (data.success) {
         updateActiveTab({

@@ -27,6 +27,7 @@ import { useContextMenu } from "./hooks/useContextMenu";
 import { useExport } from "./hooks/useExport";
 import { applyBoxCut, getBoxSelectionText } from "./utils/boxSelection";
 import { formatBytes } from "./utils/formatBytes";
+import { isTeleportAuthError, teleportProxyFromError } from "./utils/teleport";
 import logoApp from "./assets/darube.png";
 
 const params = new URLSearchParams(window.location.search);
@@ -95,10 +96,14 @@ function App() {
   const [editingId, setEditingId] = useState(null);
   const [teleportLoginPrompt, setTeleportLoginPrompt] = useState(null);
   const teleportLoginReqRef = useRef(null);
+  // Lets hooks (e.g. query execution) recover from an expired Teleport session
+  // by opening the in-app login modal. Populated after ensureTeleportLogin is
+  // defined below; using a ref avoids the definition-ordering problem.
+  const teleportRecoverRef = useRef(null);
 
   // ── Hooks ─────────────────────────────────────────────────────────────────
   const connections = useConnections(apiUrl);
-  const tabs = useTabs(apiUrl, activeId, setLoading, settings);
+  const tabs = useTabs(apiUrl, activeId, setLoading, settings, teleportRecoverRef);
   const grid = useEditableGrid(
     apiUrl,
     activeId,
@@ -138,7 +143,7 @@ function App() {
     return data || {};
   };
 
-  const requestTeleportLogin = ({ defaultProxy, reason }) => {
+  const requestTeleportLogin = ({ defaultProfileId, reason }) => {
     if (teleportLoginReqRef.current?.promise) return teleportLoginReqRef.current.promise;
     let resolve = null;
     const promise = new Promise((r) => {
@@ -146,7 +151,7 @@ function App() {
     });
     teleportLoginReqRef.current = { promise, resolve };
     setTeleportLoginPrompt({
-      defaultProxy: String(defaultProxy || ""),
+      defaultProfileId: String(defaultProfileId || ""),
       reason: String(reason || ""),
     });
     return promise;
@@ -159,9 +164,8 @@ function App() {
     req?.resolve?.(!!ok);
   };
 
-  const ensureTeleportLogin = async ({ profileName, fallbackProxy, reason } = {}) => {
+  const ensureTeleportLogin = async ({ profileName, profileId, reason } = {}) => {
     const wantedProfile = String(profileName || "").trim();
-    const fallback = String(fallbackProxy || "").trim();
 
     const st = await fetchTeleportStatus(wantedProfile);
     if (st?.tsh_available === false) {
@@ -170,22 +174,32 @@ function App() {
     }
     if (st?.logged_in) return true;
 
-    const proxyGuess =
-      String(st?.proxy || "").trim() ||
-      wantedProfile ||
-      fallback;
-
     const ok = await requestTeleportLogin({
-      defaultProxy: proxyGuess,
+      defaultProfileId: profileId,
       reason: String(reason || st?.error || "Teleport session is missing or expired."),
     });
     if (!ok) return false;
 
-    const st2 = await fetchTeleportStatus(wantedProfile || proxyGuess);
+    const st2 = await fetchTeleportStatus(wantedProfile);
     if (st2?.logged_in) return true;
 
     alert(st2?.error || "Teleport login did not complete. Please try again.");
     return false;
+  };
+
+  // Given a connection id, open the Teleport login modal if that connection
+  // uses Teleport. Returns true once a fresh session is available. Reassigned
+  // every render so the closure stays current; hooks read it via the ref.
+  teleportRecoverRef.current = async (connectionId) => {
+    const conn = connections.connections.find((c) => c.id === connectionId);
+    const proxy =
+      getTeleportProxyForProfileId(conn?.teleport_profile_id) ||
+      conn?.teleport_profile;
+    return ensureTeleportLogin({
+      profileName: proxy,
+      profileId: conn?.teleport_profile_id,
+      reason: "Your Teleport session has expired. Log in to continue.",
+    });
   };
 
   // ── Initial polling ───────────────────────────────────────────────────────
@@ -478,7 +492,7 @@ function App() {
         const proxy = getTeleportProxyForProfileId(formData.teleport_profile_id) || formData.teleport_profile;
         const ok = await ensureTeleportLogin({
           profileName: proxy,
-          fallbackProxy: proxy,
+          profileId: formData.teleport_profile_id,
           reason: "Teleport login is required before connecting.",
         });
         if (!ok) return;
@@ -599,7 +613,7 @@ function App() {
         const proxy = getTeleportProxyForProfileId(formData.teleport_profile_id) || formData.teleport_profile;
         const ok = await ensureTeleportLogin({
           profileName: proxy,
-          fallbackProxy: proxy,
+          profileId: formData.teleport_profile_id,
           reason: "Teleport login is required before testing the connection.",
         });
         if (!ok) return;
@@ -679,12 +693,33 @@ function App() {
         const proxy = getTeleportProxyForProfileId(conn.teleport_profile_id) || conn.teleport_profile;
         const ok = await ensureTeleportLogin({
           profileName: proxy,
-          fallbackProxy: proxy,
+          profileId: conn?.teleport_profile_id,
           reason: "Teleport login is required before connecting.",
         });
         if (!ok) return;
       }
-      await connections.handleReconnect(id);
+      let data = await connections.handleReconnect(id);
+      // If the engine reports a missing/expired Teleport session, open the
+      // in-app login modal and retry once — rather than surfacing the raw
+      // "run `tsh login`" error. Keyed off the error itself (not a local flag)
+      // so it works even when the connection object lacks teleport metadata.
+      if (data && data.success === false && isTeleportAuthError(data.error)) {
+        const proxyFromError = teleportProxyFromError(data.error);
+        const proxyGuess =
+          getTeleportProxyForProfileId(conn?.teleport_profile_id) ||
+          conn?.teleport_profile ||
+          proxyFromError;
+        const ok = await ensureTeleportLogin({
+          profileName: proxyGuess,
+          profileId: conn?.teleport_profile_id,
+          reason: "Your Teleport session has expired. Log in to continue.",
+        });
+        if (ok) data = await connections.handleReconnect(id);
+      }
+      if (data && data.success === false && data.error) {
+        alert("Failed to connect: " + data.error);
+        return;
+      }
       setActiveId(id);
     } catch (err) {
       alert("Failed to connect: " + (err?.message || String(err)));
@@ -1627,7 +1662,8 @@ function App() {
       <TeleportLoginModal
         show={!!teleportLoginPrompt}
         apiUrl={apiUrl}
-        defaultProxy={teleportLoginPrompt?.defaultProxy || ""}
+        profiles={settings?.teleport_profiles || []}
+        defaultProfileId={teleportLoginPrompt?.defaultProfileId || ""}
         reason={teleportLoginPrompt?.reason || ""}
         onCancel={() => resolveTeleportLogin(false)}
         onSuccess={() => resolveTeleportLogin(true)}

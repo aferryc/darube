@@ -179,14 +179,16 @@ export function useConnections(apiUrl) {
 
   const handleReconnect = async (id) => {
     const conn = connections.find(c => c.id === id);
-    if (conn?.db_type === 'http' || conn?.db_type === 'grpc') return;
+    if (conn?.db_type === 'http' || conn?.db_type === 'grpc') return null;
     const url = conn?.db_type === 'redis' ? `${apiUrl}/api/redis/reconnect` : `${apiUrl}/api/connections/connect`;
-    await fetch(url, {
+    const res = await fetch(url, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ id }),
     });
+    const data = await res.json().catch(() => ({}));
     fetchConnections();
+    return data;
   };
 
   const handleDeleteConnection = async (id, activeId, setActiveId) => {

@@ -285,17 +285,27 @@ func DeleteTeleportProfileHandler(w http.ResponseWriter, r *http.Request) {
 }
 
 // TeleportLoginHandler handles POST /api/teleport/login
-// Body: {"proxy": "teleport.example.com"}
-// Runs `tsh login --proxy=<host>` which opens the system browser for SSO.
+// Body: {"proxy": "", "user": "", "password": "", "otp": ""}
+// All fields are optional. With password/otp it drives a non-interactive
+// `tsh login`; without them tsh runs normally (e.g. browser SSO) against the
+// current profile.
 func TeleportLoginHandler(w http.ResponseWriter, r *http.Request) {
 	var body struct {
-		Proxy string `json:"proxy"`
+		Proxy    string `json:"proxy"`
+		User     string `json:"user"`
+		Password string `json:"password"`
+		OTP      string `json:"otp"`
 	}
-	if err := json.NewDecoder(r.Body).Decode(&body); err != nil || body.Proxy == "" {
-		sendJSONResponse(w, map[string]interface{}{"success": false, "error": "proxy is required"}, http.StatusBadRequest)
+	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+		sendJSONResponse(w, map[string]interface{}{"success": false, "error": "invalid request body"}, http.StatusBadRequest)
 		return
 	}
-	result, err := teleport.Login(r.Context(), body.Proxy)
+	result, err := teleport.Login(r.Context(), teleport.LoginOptions{
+		Proxy:    body.Proxy,
+		User:     body.User,
+		Password: body.Password,
+		OTP:      body.OTP,
+	})
 	if err != nil {
 		sendJSONResponse(w, map[string]interface{}{"success": false, "error": err.Error(), "output": result.Output}, http.StatusOK)
 		return

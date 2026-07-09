@@ -43,6 +43,12 @@ func Status(profileName string) TSHStatus {
 
 	dir := defaultTSHDir()
 	p, err := profile.FromDir(dir, strings.TrimSpace(profileName))
+	if err != nil && strings.TrimSpace(profileName) != "" {
+		// The stored profile may be a display label (e.g. "StockbitTeleport")
+		// rather than a real proxy-host profile filename. Fall back to the
+		// current active profile so a valid `tsh login` session is still seen.
+		p, err = profile.FromDir(dir, "")
+	}
 	if err != nil {
 		st.LoggedIn = false
 		st.Error = err.Error()

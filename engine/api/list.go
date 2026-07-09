@@ -15,6 +15,13 @@ type ConnectionStatus struct {
 	User           string `json:"user"`
 	Status         string `json:"status"` // "connected" or "disconnected"
 	FolderID       string `json:"folder_id,omitempty"`
+
+	// Teleport metadata so the UI can prompt for `tsh login` in-app before
+	// connecting instead of surfacing the engine's raw "run tsh login" error.
+	TeleportEnabled   bool   `json:"teleport_enabled,omitempty"`
+	TeleportProfileID string `json:"teleport_profile_id,omitempty"`
+	TeleportProfile   string `json:"teleport_profile,omitempty"`
+	TeleportUser      string `json:"teleport_user,omitempty"`
 }
 
 type ListConnectionsResponse struct {
@@ -42,14 +49,18 @@ func ListConnectionsHandler(w http.ResponseWriter, r *http.Request) {
 			status = "connected"
 		}
 		results = append(results, ConnectionStatus{
-			ID:             c.ID,
-			ConnectionName: c.ConnectionName,
-			DBType:         c.DBType,
-			Host:           c.Host,
-			Port:           c.Port,
-			User:           c.User,
-			Status:         status,
-			FolderID:       c.FolderID,
+			ID:                c.ID,
+			ConnectionName:    c.ConnectionName,
+			DBType:            c.DBType,
+			Host:              c.Host,
+			Port:              c.Port,
+			User:              c.User,
+			Status:            status,
+			FolderID:          c.FolderID,
+			TeleportEnabled:   c.TeleportEnabled,
+			TeleportProfileID: c.TeleportProfileID,
+			TeleportProfile:   c.TeleportProfile,
+			TeleportUser:      c.TeleportUser,
 		})
 	}
 
