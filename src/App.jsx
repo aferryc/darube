@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect } from "react";
 import Split from "react-split";
 
 import { SqlAutocomplete } from "./components/SqlAutocomplete";
@@ -25,9 +25,10 @@ import { useTabs } from "./hooks/useTabs";
 import { useEditableGrid } from "./hooks/useEditableGrid";
 import { useContextMenu } from "./hooks/useContextMenu";
 import { useExport } from "./hooks/useExport";
+import { useTeleport } from "./hooks/useTeleport";
 import { applyBoxCut, getBoxSelectionText } from "./utils/boxSelection";
 import { formatBytes } from "./utils/formatBytes";
-import { isTeleportAuthError, teleportProxyFromError } from "./utils/teleport";
+import { isTeleportAuthError } from "./utils/teleport";
 import logoApp from "./assets/darube.png";
 
 const params = new URLSearchParams(window.location.search);
@@ -94,16 +95,10 @@ function App() {
   const [tableSizeStatus, setTableSizeStatus] = useState(null);
   const [formData, setFormData] = useState(EMPTY_FORM);
   const [editingId, setEditingId] = useState(null);
-  const [teleportLoginPrompt, setTeleportLoginPrompt] = useState(null);
-  const teleportLoginReqRef = useRef(null);
-  // Lets hooks (e.g. query execution) recover from an expired Teleport session
-  // by opening the in-app login modal. Populated after ensureTeleportLogin is
-  // defined below; using a ref avoids the definition-ordering problem.
-  const teleportRecoverRef = useRef(null);
-
   // ── Hooks ─────────────────────────────────────────────────────────────────
   const connections = useConnections(apiUrl);
-  const tabs = useTabs(apiUrl, activeId, setLoading, settings, teleportRecoverRef);
+  const teleport = useTeleport(apiUrl, settings, connections);
+  const tabs = useTabs(apiUrl, activeId, setLoading, settings, teleport.recoverRef);
   const grid = useEditableGrid(
     apiUrl,
     activeId,
@@ -127,79 +122,6 @@ function App() {
     const dt = new Date(value);
     if (Number.isNaN(dt.getTime())) return "";
     return dt.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
-  };
-
-  const getTeleportProxyForProfileId = (profileId) => {
-    const list = settings?.teleport_profiles || [];
-    const p = list.find((x) => String(x?.id || "") === String(profileId || ""));
-    return String(p?.profile || "").trim();
-  };
-
-  const fetchTeleportStatus = async (profileName) => {
-    const p = String(profileName || "").trim();
-    const qs = p ? `?profile=${encodeURIComponent(p)}` : "";
-    const res = await fetch(`${apiUrl}/api/teleport/status${qs}`);
-    const data = await res.json().catch(() => ({}));
-    return data || {};
-  };
-
-  const requestTeleportLogin = ({ defaultProfileId, reason }) => {
-    if (teleportLoginReqRef.current?.promise) return teleportLoginReqRef.current.promise;
-    let resolve = null;
-    const promise = new Promise((r) => {
-      resolve = r;
-    });
-    teleportLoginReqRef.current = { promise, resolve };
-    setTeleportLoginPrompt({
-      defaultProfileId: String(defaultProfileId || ""),
-      reason: String(reason || ""),
-    });
-    return promise;
-  };
-
-  const resolveTeleportLogin = (ok) => {
-    const req = teleportLoginReqRef.current;
-    teleportLoginReqRef.current = null;
-    setTeleportLoginPrompt(null);
-    req?.resolve?.(!!ok);
-  };
-
-  const ensureTeleportLogin = async ({ profileName, profileId, reason } = {}) => {
-    const wantedProfile = String(profileName || "").trim();
-
-    const st = await fetchTeleportStatus(wantedProfile);
-    if (st?.tsh_available === false) {
-      alert(st?.error || "Teleport (tsh) is not available on this machine.");
-      return false;
-    }
-    if (st?.logged_in) return true;
-
-    const ok = await requestTeleportLogin({
-      defaultProfileId: profileId,
-      reason: String(reason || st?.error || "Teleport session is missing or expired."),
-    });
-    if (!ok) return false;
-
-    const st2 = await fetchTeleportStatus(wantedProfile);
-    if (st2?.logged_in) return true;
-
-    alert(st2?.error || "Teleport login did not complete. Please try again.");
-    return false;
-  };
-
-  // Given a connection id, open the Teleport login modal if that connection
-  // uses Teleport. Returns true once a fresh session is available. Reassigned
-  // every render so the closure stays current; hooks read it via the ref.
-  teleportRecoverRef.current = async (connectionId) => {
-    const conn = connections.connections.find((c) => c.id === connectionId);
-    const proxy =
-      getTeleportProxyForProfileId(conn?.teleport_profile_id) ||
-      conn?.teleport_profile;
-    return ensureTeleportLogin({
-      profileName: proxy,
-      profileId: conn?.teleport_profile_id,
-      reason: "Your Teleport session has expired. Log in to continue.",
-    });
   };
 
   // ── Initial polling ───────────────────────────────────────────────────────
@@ -489,12 +411,10 @@ function App() {
       }
 
       if (isTeleport) {
-        const proxy = getTeleportProxyForProfileId(formData.teleport_profile_id) || formData.teleport_profile;
-        const ok = await ensureTeleportLogin({
-          profileName: proxy,
-          profileId: formData.teleport_profile_id,
-          reason: "Teleport login is required before connecting.",
-        });
+        const ok = await teleport.ensureLoginForConnection(
+          formData,
+          "Teleport login is required before connecting.",
+        );
         if (!ok) return;
       }
 
@@ -610,12 +530,10 @@ function App() {
       }
 
       if (isTeleport) {
-        const proxy = getTeleportProxyForProfileId(formData.teleport_profile_id) || formData.teleport_profile;
-        const ok = await ensureTeleportLogin({
-          profileName: proxy,
-          profileId: formData.teleport_profile_id,
-          reason: "Teleport login is required before testing the connection.",
-        });
+        const ok = await teleport.ensureLoginForConnection(
+          formData,
+          "Teleport login is required before testing the connection.",
+        );
         if (!ok) return;
       }
 
@@ -690,30 +608,19 @@ function App() {
     try {
       const conn = connections.connections.find((c) => c.id === id);
       if (conn?.teleport_enabled) {
-        const proxy = getTeleportProxyForProfileId(conn.teleport_profile_id) || conn.teleport_profile;
-        const ok = await ensureTeleportLogin({
-          profileName: proxy,
-          profileId: conn?.teleport_profile_id,
-          reason: "Teleport login is required before connecting.",
-        });
+        const ok = await teleport.ensureLoginForConnection(
+          conn,
+          "Teleport login is required before connecting.",
+        );
         if (!ok) return;
       }
       let data = await connections.handleReconnect(id);
       // If the engine reports a missing/expired Teleport session, open the
       // in-app login modal and retry once — rather than surfacing the raw
-      // "run `tsh login`" error. Keyed off the error itself (not a local flag)
-      // so it works even when the connection object lacks teleport metadata.
+      // "run `tsh login`" error. Keyed off the error itself so it recovers even
+      // when the pre-check above was skipped or gave a false positive.
       if (data && data.success === false && isTeleportAuthError(data.error)) {
-        const proxyFromError = teleportProxyFromError(data.error);
-        const proxyGuess =
-          getTeleportProxyForProfileId(conn?.teleport_profile_id) ||
-          conn?.teleport_profile ||
-          proxyFromError;
-        const ok = await ensureTeleportLogin({
-          profileName: proxyGuess,
-          profileId: conn?.teleport_profile_id,
-          reason: "Your Teleport session has expired. Log in to continue.",
-        });
+        const ok = await teleport.ensureLoginForConnection(conn);
         if (ok) data = await connections.handleReconnect(id);
       }
       if (data && data.success === false && data.error) {
@@ -1660,13 +1567,13 @@ function App() {
       />
       <HelpModal show={showHelpModal} onClose={() => setShowHelpModal(false)} />
       <TeleportLoginModal
-        show={!!teleportLoginPrompt}
+        show={!!teleport.loginPrompt}
         apiUrl={apiUrl}
         profiles={settings?.teleport_profiles || []}
-        defaultProfileId={teleportLoginPrompt?.defaultProfileId || ""}
-        reason={teleportLoginPrompt?.reason || ""}
-        onCancel={() => resolveTeleportLogin(false)}
-        onSuccess={() => resolveTeleportLogin(true)}
+        defaultProfileId={teleport.loginPrompt?.defaultProfileId || ""}
+        reason={teleport.loginPrompt?.reason || ""}
+        onCancel={() => teleport.resolveLogin(false)}
+        onSuccess={() => teleport.resolveLogin(true)}
       />
       <ContextMenu
         contextMenu={ctxMenu.contextMenu}

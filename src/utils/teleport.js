@@ -10,11 +10,3 @@ export function isTeleportAuthError(msg) {
     s.includes("credentials are missing or expired")
   );
 }
-
-// Pulls the proxy/profile out of an engine error like
-// "teleport: not logged in (run `tsh login --proxy=example.teleport.sh`)".
-// Returns "" if none is present.
-export function teleportProxyFromError(msg) {
-  const m = String(msg || "").match(/--proxy=([^\s`'")]+)/);
-  return m ? m[1] : "";
-}
