@@ -1,7 +1,7 @@
 # Darube Makefile
 # ─────────────────────────────────────────────────────────────────────────────
 
-.PHONY: help dev test test-fe test-be build-engine build-engine-win build-engine-linux build build-win build-linux electron-build
+.PHONY: help dev test test-fe test-be build-engine build-engine-mac-arm64 build-engine-win build-engine-linux build build-mac-arm64 build-win build-linux electron-build
 
 # Extra electron-builder options, for example --publish never in CI.
 ELECTRON_BUILDER_ARGS ?=
@@ -17,6 +17,7 @@ help:
 	@echo "  make test           Run both FE and BE tests"
 	@echo "  make build-engine   Compile the Go engine binary"
 	@echo "  make build          Compile engine + package full Electron app"
+	@echo "  make build-mac-arm64 Build Apple Silicon macOS package (engine + Electron)"
 	@echo "  make build-win      Build Windows package (engine + Electron)"
 	@echo "  make build-linux    Build Linux package (engine + Electron)"
 	@echo "  make clean          Remove compiled artifacts"
@@ -41,6 +42,10 @@ test: test-fe test-be
 build-engine:
 	cd engine && CGO_ENABLED=0 go build -o bin/engine .
 
+# ── Build the Go engine for Apple Silicon macOS ──────────────────────────────
+build-engine-mac-arm64:
+	cd engine && CGO_ENABLED=0 GOOS=darwin GOARCH=arm64 go build -o bin/engine .
+
 # ── Build the Go engine binary for Windows ───────────────────────────────────
 build-engine-win:
 	cd engine && CGO_ENABLED=0 GOOS=windows GOARCH=amd64 go build -o bin/engine.exe .
@@ -56,6 +61,10 @@ build: build-engine
 	@echo ""
 	@echo "  ✅ App packaged to ./release/"
 	@echo ""
+
+# ── Apple Silicon macOS build ────────────────────────────────────────────────
+build-mac-arm64: build-engine-mac-arm64
+	npm run build -- --mac --arm64 $(ELECTRON_BUILDER_ARGS)
 
 # ── Windows build ────────────────────────────────────────────────────────────
 build-win: build-engine-win

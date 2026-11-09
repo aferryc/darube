@@ -41,6 +41,9 @@ make build-engine
 # Package the full app (engine + Vite + electron-builder)
 make build
 
+# Package for Apple Silicon macOS (ARM64 engine and Electron app)
+make build-mac-arm64
+
 # Package for Windows
 make build-win
 
@@ -62,9 +65,11 @@ make test
 ### GitHub Actions
 
 The `Test and build` workflow runs on pushes, pull requests, and manual dispatches.
-It runs the frontend and Go test suites, then packages the app on native macOS,
-Windows, and Linux runners using `make build`, `make build-win`, and
-`make build-linux`. Packaging starts only after both test suites pass.
+It runs the frontend and Go test suites, then packages the app for Intel macOS
+(`make build`), Apple Silicon macOS (`make build-mac-arm64`), Windows
+(`make build-win`), and Linux (`make build-linux`) on native runners.
+Packaging starts only after both test suites pass. The two macOS architectures
+are uploaded as separate artifacts.
 
 Download the platform packages from the workflow run's **Artifacts** section.
 Artifacts are kept for 14 days. CI builds are unsigned and use `--publish never`.

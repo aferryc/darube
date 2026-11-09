@@ -53,8 +53,10 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          - os: macos-latest
+          - os: macos-15-intel
             target: build
+          - os: macos-15
+            target: build-mac-arm64
           - os: windows-latest
             target: build-win
           - os: ubuntu-latest
