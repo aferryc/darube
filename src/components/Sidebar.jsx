@@ -83,6 +83,9 @@ function ConnectionItem({ c, activeId, expandedConns, expandedTree, metadata, ta
       <div
         className={`connection-item ${activeId === c.id ? 'active' : ''} ${inFolder ? 'in-folder' : ''}`}
         onClick={() => handleConnectionClick(c.id)}
+        onDoubleClick={() => {
+          if (!isStateless && c.status !== 'connected') handleReconnect(c.id);
+        }}
       >
         <div className="connection-item-header">
           <span className={`status-dot ${c.status}`} title={c.status} />
@@ -96,7 +99,7 @@ function ConnectionItem({ c, activeId, expandedConns, expandedTree, metadata, ta
           {c.db_type === 'grpc'      && <span style={{ fontSize: '16px', lineHeight: 1 }}>🔌</span>}
           <span style={{ fontWeight: 500 }}>{c.connection_name}</span>
         </div>
-        <div className="connection-item-controls">
+        <div className="connection-item-controls" onDoubleClick={(e) => e.stopPropagation()}>
           <img src={iconPencil}  className="icon-sm icon-light" alt="Edit"    onClick={(e) => handleEditConnection(c, e)} title="Edit Connection" />
           <img src={iconDelete}  className="icon-sm icon-light" alt="Delete"  onClick={(e) => handleDeleteConnection(c.id, e)} title="Delete Connection" />
           <img src={iconRefresh} className="icon-sm icon-light" alt="Refresh" onClick={(e) => { e.stopPropagation(); fetchConnections(); }} title="Refresh" />
@@ -258,7 +261,11 @@ export function Sidebar({
               </div>
             )}
             {connections.map(c => (
-              <div key={c.id} className={`sidebar-icon-conn ${activeId === c.id ? 'active' : ''}`} onClick={() => handleConnectionClick(c.id)} title={`${c.connection_name} (${c.db_type}) — ${c.status}`}>
+              <div key={c.id} className={`sidebar-icon-conn ${activeId === c.id ? 'active' : ''}`} onClick={() => handleConnectionClick(c.id)}
+                onDoubleClick={() => {
+                  if (c.db_type !== 'http' && c.db_type !== 'grpc' && c.status !== 'connected') handleReconnect(c.id);
+                }}
+                title={`${c.connection_name} (${c.db_type}) — ${c.status}`}>
                 <span className={`status-dot ${c.status}`} />
                 {c.db_type === 'mysql'     && <img src={iconMysql}     className="icon icon-light" alt="MySQL" />}
                 {c.db_type === 'oracle'   && <img src={iconOracle}    className="icon icon-light" alt="Oracle" />}

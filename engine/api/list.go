@@ -45,7 +45,9 @@ func ListConnectionsHandler(w http.ResponseWriter, r *http.Request) {
 	var results []ConnectionStatus
 	for _, c := range saved {
 		status := "disconnected"
-		if store.IsConnected(c.ID) {
+		// Listing saved connections must stay passive. Ping can open a new
+		// socket and repeatedly retry an unavailable database during UI polling.
+		if store.GetActiveConnection(c.ID) != nil {
 			status = "connected"
 		}
 		results = append(results, ConnectionStatus{

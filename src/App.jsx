@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import Split from "react-split";
 
 import { SqlAutocomplete } from "./components/SqlAutocomplete";
@@ -28,7 +28,6 @@ import { useExport } from "./hooks/useExport";
 import { useTeleport } from "./hooks/useTeleport";
 import { applyBoxCut, getBoxSelectionText } from "./utils/boxSelection";
 import { formatBytes } from "./utils/formatBytes";
-import { isTeleportAuthError } from "./utils/teleport";
 import logoApp from "./assets/darube.png";
 
 const params = new URLSearchParams(window.location.search);
@@ -95,6 +94,7 @@ function App() {
   const [tableSizeStatus, setTableSizeStatus] = useState(null);
   const [formData, setFormData] = useState(EMPTY_FORM);
   const [editingId, setEditingId] = useState(null);
+  const connectingRef = useRef(new Set());
   // ── Hooks ─────────────────────────────────────────────────────────────────
   const connections = useConnections(apiUrl);
   const teleport = useTeleport(apiUrl, settings, connections);
@@ -605,6 +605,8 @@ function App() {
   const handleDisconnect = (id) =>
     connections.handleDisconnect(id, activeId, setActiveId);
   const handleReconnect = async (id) => {
+    if (connectingRef.current.has(id)) return;
+    connectingRef.current.add(id);
     try {
       const conn = connections.connections.find((c) => c.id === id);
       if (conn?.teleport_enabled) {
@@ -614,31 +616,30 @@ function App() {
         );
         if (!ok) return;
       }
-      let data = await connections.handleReconnect(id);
-      // If the engine reports a missing/expired Teleport session, open the
-      // in-app login modal and retry once — rather than surfacing the raw
-      // "run `tsh login`" error. Keyed off the error itself so it recovers even
-      // when the pre-check above was skipped or gave a false positive.
-      if (data && data.success === false && isTeleportAuthError(data.error)) {
-        const ok = await teleport.ensureLoginForConnection(conn);
-        if (ok) data = await connections.handleReconnect(id);
-      }
-      if (data && data.success === false && data.error) {
-        alert("Failed to connect: " + data.error);
+      const data = await connections.handleReconnect(id);
+      if (data && data.success !== true) {
+        alert("Failed to connect: " + (data.error || "Connection attempt failed"));
         return;
       }
       setActiveId(id);
     } catch (err) {
       alert("Failed to connect: " + (err?.message || String(err)));
+    } finally {
+      connectingRef.current.delete(id);
     }
   };
 
   const handleConnectionClick = async (id, forceExpand) => {
+    const conn = connections.connections.find((c) => c.id === id);
     const firstTabId = tabs.getFirstTabIdForConnection(id);
     if (firstTabId) {
       setActiveId(id);
       tabs.setActiveTabId(firstTabId);
       await connections.handleConnectionClick(id, forceExpand);
+      return;
+    }
+    if (conn?.status !== "connected") {
+      setActiveId(id);
       return;
     }
     setSwitchPrompt({ targetId: id, forceExpand: !!forceExpand });

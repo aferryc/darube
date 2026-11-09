@@ -14,7 +14,6 @@ import (
 	"regexp"
 	"strings"
 	"sync"
-	"syscall"
 	"time"
 
 	"github.com/gravitational/teleport/api/profile"
@@ -254,9 +253,8 @@ func startDBProxy(ctx context.Context, tshPath string, cfg store.ConnectionConfi
 
 	proxyCtx, cancelCtx := context.WithCancel(ctx)
 	cmd := exec.Command(tshPath, args...)
-	// Start tsh in its own process group so we can reliably terminate it (and any
-	// children) when the connection is closed or times out.
-	cmd.SysProcAttr = &syscall.SysProcAttr{Setpgid: true}
+	// Configure platform-specific process cleanup for connection shutdown.
+	configureProxyProcess(cmd)
 
 	stdoutPipe, err := cmd.StdoutPipe()
 	if err != nil {
@@ -278,16 +276,7 @@ func startDBProxy(ctx context.Context, tshPath string, cfg store.ConnectionConfi
 			if cmd.Process == nil {
 				return
 			}
-			// Try graceful shutdown first.
-			pgid, _ := syscall.Getpgid(cmd.Process.Pid)
-			if pgid <= 0 {
-				pgid = cmd.Process.Pid
-			}
-			_ = syscall.Kill(-pgid, syscall.SIGTERM)
-			time.AfterFunc(500*time.Millisecond, func() {
-				_ = syscall.Kill(-pgid, syscall.SIGKILL)
-				_ = cmd.Process.Kill()
-			})
+			stopProxyProcess(cmd)
 		})
 	}
 

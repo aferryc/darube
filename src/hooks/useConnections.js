@@ -164,7 +164,8 @@ export function useConnections(apiUrl) {
   const handleConnectionClick = async (id, forceExpand = false) => {
     const isExpanded = forceExpand || !expandedConns[id];
     setExpandedConns(prev => ({ ...prev, [id]: isExpanded }));
-    if (isExpanded && !metadata[id]) await fetchMetadata(id);
+    const conn = connections.find(c => c.id === id);
+    if (conn?.status === 'connected' && isExpanded && !metadata[id]) await fetchMetadata(id);
     return id; // let caller do setActiveId
   };
 

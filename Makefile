@@ -3,6 +3,9 @@
 
 .PHONY: help dev test test-fe test-be build-engine build-engine-win build-engine-linux build build-win build-linux electron-build
 
+# Extra electron-builder options, for example --publish never in CI.
+ELECTRON_BUILDER_ARGS ?=
+
 # Default target
 help:
 	@echo ""
@@ -47,20 +50,20 @@ build-engine-linux:
 	cd engine && CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -o bin/engine .
 
 # ── Full production build (engine → Vite → electron-builder) ─────────────────
-# electron-builder copies engine/engine via extraResources so it must exist first.
+# electron-builder copies engine/bin via extraResources so it must exist first.
 build: build-engine
-	npm run build
+	npm run build -- $(ELECTRON_BUILDER_ARGS)
 	@echo ""
 	@echo "  ✅ App packaged to ./release/"
 	@echo ""
 
 # ── Windows build ────────────────────────────────────────────────────────────
 build-win: build-engine-win
-	npm run build -- --win
+	npm run build -- --win $(ELECTRON_BUILDER_ARGS)
 
 # ── Linux build ──────────────────────────────────────────────────────────────
 build-linux: build-engine-linux
-	npm run build -- --linux
+	npm run build -- --linux $(ELECTRON_BUILDER_ARGS)
 
 # ── Remove compiled artifacts ────────────────────────────────────────────────
 clean:

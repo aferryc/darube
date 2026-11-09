@@ -59,6 +59,16 @@ make test
   - Query tabs are autosaved to `workspace.json`.
   - Tabs are bound to a connection. Clicking another connection switches to its existing tabs; if none exist, Darube prompts to create a new tab or rebind the current tab.
 
+### GitHub Actions
+
+The `Test and build` workflow runs on pushes, pull requests, and manual dispatches.
+It runs the frontend and Go test suites, then packages the app on native macOS,
+Windows, and Linux runners using `make build`, `make build-win`, and
+`make build-linux`. Packaging starts only after both test suites pass.
+
+Download the platform packages from the workflow run's **Artifacts** section.
+Artifacts are kept for 14 days. CI builds are unsigned and use `--publish never`.
+
 ## Scripting
 
 Darube scripts run JavaScript using goja inside the local Go engine. Scripts are synchronous and interact only via a small wrapper API.

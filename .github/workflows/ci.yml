@@ -1,0 +1,104 @@
+name: Test and build
+
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+defaults:
+  run:
+    shell: bash
+
+jobs:
+  test:
+    name: Frontend and backend tests
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v6
+
+      - uses: actions/setup-node@v6
+        with:
+          node-version: '22'
+          cache: npm
+
+      - uses: actions/setup-go@v6
+        with:
+          go-version-file: engine/go.mod
+          cache-dependency-path: engine/go.sum
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Run frontend tests
+        run: make test-fe
+
+      - name: Run backend tests
+        if: ${{ !cancelled() }}
+        run: make test-be
+
+  build:
+    name: Package (${{ matrix.target }})
+    needs: test
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 45
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: macos-latest
+            target: build
+          - os: windows-latest
+            target: build-win
+          - os: ubuntu-latest
+            target: build-linux
+    env:
+      CSC_IDENTITY_AUTO_DISCOVERY: 'false'
+      BUILD_TARGET: ${{ matrix.target }}
+    steps:
+      - uses: actions/checkout@v6
+
+      - uses: actions/setup-node@v6
+        with:
+          node-version: '22'
+          cache: npm
+
+      - uses: actions/setup-go@v6
+        with:
+          go-version-file: engine/go.mod
+          cache-dependency-path: engine/go.sum
+
+      - name: Install Make on Windows
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: choco install make --yes --no-progress
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build application
+        run: make SHELL=bash "$BUILD_TARGET" ELECTRON_BUILDER_ARGS="--publish never"
+
+      - name: Upload packages
+        uses: actions/upload-artifact@v6
+        with:
+          name: darube-${{ runner.os }}-${{ runner.arch }}
+          if-no-files-found: error
+          retention-days: 14
+          compression-level: 0
+          path: |
+            release/*.dmg
+            release/*.zip
+            release/*.exe
+            release/*.AppImage
+            release/*.snap
+            release/*.deb
+            release/*.rpm
+            release/*.blockmap

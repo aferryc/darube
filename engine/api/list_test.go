@@ -9,6 +9,8 @@ import (
 	"testing"
 
 	"engine/store"
+
+	"github.com/DATA-DOG/go-sqlmock"
 )
 
 func TestListConnectionsHandler(t *testing.T) {
@@ -65,6 +67,56 @@ func TestListConnectionsHandler(t *testing.T) {
 	if resp2.Connections[0].Status != "disconnected" {
 		t.Errorf("expected disconnected, got %s", resp2.Connections[0].Status)
 	}
+}
+
+func TestListConnectionsHandler_DoesNotPingOrConnect(t *testing.T) {
+	restore := store.SetConnectionsFileForTest(filepath.Join(t.TempDir(), "connections.json"))
+	defer restore()
+	const id = "passive-status"
+	if err := store.WriteConnection(store.ConnectionConfig{ID: id, DBType: "postgres", Host: "unavailable"}); err != nil {
+		t.Fatal(err)
+	}
+
+	conn, mock, err := sqlmock.New(sqlmock.MonitorPingsOption(true))
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	checkStatus := func(want string) {
+		t.Helper()
+		rr := httptest.NewRecorder()
+		ListConnectionsHandler(rr, httptest.NewRequest(http.MethodGet, "/api/connections", nil))
+		var resp ListConnectionsResponse
+		if err := json.NewDecoder(rr.Body).Decode(&resp); err != nil {
+			t.Fatal(err)
+		}
+		for _, c := range resp.Connections {
+			if c.ID == id {
+				if c.Status != want {
+					t.Fatalf("status = %q, want %q", c.Status, want)
+				}
+				return
+			}
+		}
+		t.Fatal("saved connection missing")
+	}
+
+	// A saved connection stays closed until explicitly opened.
+	checkStatus("disconnected")
+	store.AddActiveConnection(id, conn)
+	t.Cleanup(func() { _ = store.RemoveActiveConnection(id) })
+	// No ping is expected: polling must not attempt network activity.
+	for i := 0; i < 3; i++ {
+		checkStatus("connected")
+	}
+	if err := mock.ExpectationsWereMet(); err != nil {
+		t.Fatal(err)
+	}
+	mock.ExpectClose()
+	if err := store.RemoveActiveConnection(id); err != nil {
+		t.Fatal(err)
+	}
+	checkStatus("disconnected")
 }
 
 func TestListConnectionsHandler_MethodNotAllowed(t *testing.T) {
