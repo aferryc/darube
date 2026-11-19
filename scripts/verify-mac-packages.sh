@@ -21,8 +21,8 @@ verify_app() {
   codesign --verify --strict --verbose=2 "$engine"
   test -x "$executable"
   test -x "$engine"
-  lipo -verify_arch "$expected_arch" "$executable"
-  lipo -verify_arch "$expected_arch" "$engine"
+  lipo "$executable" -verify_arch "$expected_arch"
+  lipo "$engine" -verify_arch "$expected_arch"
 }
 
 work_dir="$(mktemp -d)"
