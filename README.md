@@ -72,7 +72,21 @@ Packaging starts only after both test suites pass. The two macOS architectures
 are uploaded as separate artifacts.
 
 Download the platform packages from the workflow run's **Artifacts** section.
-Artifacts are kept for 14 days. CI builds are unsigned and use `--publish never`.
+Artifacts are kept for 14 days. CI builds use `--publish never`. macOS CI builds
+are ad-hoc signed after packaging the app contents, before creating the DMG and
+ZIP. This seals the app, its helpers, frameworks, and bundled Go engine without
+an Apple Developer certificate. CI verifies signatures and executable
+architectures from the extracted ZIP and mounted DMG before uploading them.
+
+Ad-hoc signing does not establish a trusted developer identity or notarize the
+app. Downloaded CI builds may still require **System Settings → Privacy &
+Security → Open Anyway** after a blocked launch. Public distribution without
+this override requires Developer ID signing and Apple notarization.
+
+If an older Apple Silicon build reports `code has no resources but signature
+indicates they must be present` when checked with `codesign --verify --deep
+--strict /Applications/Darube.app`, its bundle lacks a valid resource seal.
+Replace it with a build from the updated workflow.
 
 ## Scripting
 
